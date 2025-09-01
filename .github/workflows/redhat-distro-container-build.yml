@@ -3,12 +3,14 @@ name: Build and Publish Redhat Distribution Container for Multi-Arch
 on:
   pull_request:
     branches:
+      - main
       - rhoai-v*
     types:
       - opened
       - synchronize
   push:
     branches:
+      - main
       - rhoai-v*
 
 env:
@@ -16,7 +18,7 @@ env:
   # TODO: change the tag to whatever downstream needs
   # IMAGE_NAME: quay.io/opendatahub/llama-stack:odh
   # For now, use the commit SHA that triggered the workflow.
-  IMAGE_NAME: quay.io/opendatahub/llama-stack:${{ github.sha }}
+  IMAGE_NAME: quay.io/opendatahub/llama-stack
 
 jobs:
   build-and-push:
@@ -52,4 +54,4 @@ jobs:
           file: redhat-distribution/Containerfile
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name == 'push' }}
-          tags: ${{ env.IMAGE_NAME }}
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }},${{ env.IMAGE_NAME }}:latest
