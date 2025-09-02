@@ -15,7 +15,7 @@ The Containerfile is auto-generated from a template. To generate it:
 1. Make sure you have the `llama` CLI tool installed
 2. Run the build script from root of this git repo:
    ```bash
-   ./redhat-distribution/build.py
+   ./distribution/build.py
    ```
 
 This will:
@@ -25,7 +25,7 @@ This will:
 
 ## Editing the Containerfile
 
-The Containerfile is auto-generated from a template. To edit it, you can modify the template in `redhat-distribution/Containerfile.in` and run the build script again.
+The Containerfile is auto-generated from a template. To edit it, you can modify the template in `distribution/Containerfile.in` and run the build script again.
 NEVER edit the generated `Containerfile` manually.
 
 ## Building the Container Image
@@ -35,7 +35,7 @@ Once the Containerfile is generated, you can build the image using either Podman
 ### Using Podman build image for x86_64
 
 ```bash
-podman build --platform linux/amd64 -f redhat-distribution/Containerfile -t rh .
+podman build --platform linux/amd64 -f distribution/Containerfile -t rh .
 ```
 
 ## Notes
