@@ -1,0 +1,97 @@
+name: Build, test, and publish Red Hat Distribution Containers
+
+on:
+  pull_request:
+    branches:
+      - main
+      - rhoai-v*
+    types:
+      - opened
+      - synchronize
+  push:
+    branches:
+      - main
+      - rhoai-v*
+
+env:
+  REGISTRY: quay.io
+  IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: distribution/Containerfile
+          platforms: ${{ matrix.platform }}
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          load: true  # needed to load for smoke test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test image
+        id: test
+        run: |
+          set -euo pipefail
+          # Start llama stack
+          CID="$(docker run -d --pull=never \
+            -p 8321:8321 \
+            --env INFERENCE_MODEL=dummy \
+            --name llama-stack \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }})"
+          trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
+          echo "Started Llama Stack container with CID: $CID"
+
+          echo "Waiting for Llama Stack server..."
+          for i in {1..60}; do
+            echo "Attempt $i to connect to Llama Stack..."
+            if curl -fsS --max-time 2 http://127.0.0.1:8321/v1/health | grep -q '"status":"OK"'; then
+              echo "Llama Stack server is up :)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Llama Stack server failed to start :("
+          echo "Container logs:"
+          docker logs "$CID" || true
+          exit 1
+
+      - name: Log in to Quay.io
+        id: login
+        if: github.event_name == 'push'
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Publish image to Quay.io
+        id: publish
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: distribution/Containerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}${{ github.ref == 'refs/heads/main' && format(',{0}:latest', env.IMAGE_NAME) || '' }}  # only update 'latest' tag if push is to the 'main' branch
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
