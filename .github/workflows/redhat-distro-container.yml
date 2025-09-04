@@ -47,6 +47,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Setup vllm for image test
+        id: vllm
+        uses: ./.github/actions/setup-vllm
+
       - name: Test image
         id: test
         run: |
@@ -54,7 +58,7 @@ jobs:
           # Start llama stack
           CID="$(docker run -d --pull=never \
             -p 8321:8321 \
-            --env INFERENCE_MODEL=dummy \
+            --env INFERENCE_MODEL=meta-llama/Llama-3.2-1B-Instruct \
             --name llama-stack \
             ${{ env.IMAGE_NAME }}:${{ github.sha }})"
           trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
@@ -64,8 +68,24 @@ jobs:
           for i in {1..60}; do
             echo "Attempt $i to connect to Llama Stack..."
             if curl -fsS --max-time 2 http://127.0.0.1:8321/v1/health | grep -q '"status":"OK"'; then
-              echo "Llama Stack server is up :)"
-              exit 0
+              echo "Llama Stack server is up and serving :)"
+              if curl -fsS --max-time 4 http://127.0.0.1:8321/v1/models | grep -q 'meta-llama/Llama-3.2-1B-Instruct'; then
+                echo "meta-llama/Llama-3.2-1B-Instruct model was found :)"
+                if curl -fsS --max-time 6 http://127.0.0.1:8321/v1/openai/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"meta-llama/Llama-3.2-1B-Instruct\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 10, \"temperature\": 0.0}" | grep -q 'green'; then
+                  echo "Inference is working :)"
+                  exit 0
+                else
+                  echo "Inference is not working :("
+                  echo "Container logs:"
+                  docker logs "$CID" || true
+                  exit 1
+                fi
+              else
+                echo "meta-llama/Llama-3.2-1B-Instruct model was not found :("
+                echo "Container logs:"
+                docker logs "$CID" || true
+                exit 1
+              fi
             fi
             sleep 1
           done
