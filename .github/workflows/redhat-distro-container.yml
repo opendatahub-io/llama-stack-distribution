@@ -13,6 +13,10 @@ on:
       - main
       - rhoai-v*
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: quay.io
   IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
