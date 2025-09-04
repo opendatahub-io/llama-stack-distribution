@@ -14,7 +14,7 @@ RUN pip install \
     fire \
     httpx \
     kubernetes \
-    llama_stack_provider_lmeval==0.1.7 \
+    llama_stack_provider_lmeval==0.2.4 \
     llama_stack_provider_trustyai_fms==0.2.1 \
     matplotlib \
     mcp>=1.8.1 \
