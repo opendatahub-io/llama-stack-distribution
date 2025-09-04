@@ -15,7 +15,7 @@ RUN pip install \
     httpx \
     kubernetes \
     llama_stack_provider_lmeval==0.1.7 \
-    llama_stack_provider_trustyai_fms==0.1.2 \
+    llama_stack_provider_trustyai_fms==0.2.1 \
     matplotlib \
     mcp>=1.8.1 \
     nltk \
