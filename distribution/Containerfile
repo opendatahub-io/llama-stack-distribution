@@ -8,6 +8,7 @@ RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 RUN pip install \
     aiosqlite \
     autoevals \
+    boto3 \
     chardet \
     datasets \
     fastapi \
