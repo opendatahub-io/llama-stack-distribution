@@ -8,14 +8,36 @@ This directory contains the necessary files to build a Red Hat compatible contai
 - `llama` CLI tool installed: `pip install llama-stack`
 - Podman or Docker installed
 
+## Build Modes
+
+The build script supports three modes:
+
+### 1. Full Mode (Default)
+Includes all features including TrustyAI providers that require Kubernetes/OpenShift:
+```bash
+./distribution/build.py
+```
+
+### 2. Standalone Mode
+Builds a version without Kubernetes dependencies, using Llama Guard for safety:
+```bash
+./distribution/build.py --standalone
+```
+
+### 3. Unified Mode (Recommended)
+Builds a single container that supports both modes via environment variables:
+```bash
+./distribution/build.py --unified
+```
+
 ## Generating the Containerfile
 
 The Containerfile is auto-generated from a template. To generate it:
 
 1. Make sure you have the `llama` CLI tool installed
-2. Run the build script from root of this git repo:
+2. Run the build script from root of this git repo with your desired mode:
    ```bash
-   ./distribution/build.py
+   ./distribution/build.py [--standalone] [--unified]
    ```
 
 This will:
@@ -35,7 +57,47 @@ Once the Containerfile is generated, you can build the image using either Podman
 ### Using Podman build image for x86_64
 
 ```bash
-podman build --platform linux/amd64 -f distribution/Containerfile -t rh .
+podman build --platform linux/amd64 -f distribution/Containerfile -t llama-stack-rh .
+```
+
+### Using Docker
+
+```bash
+docker build -f distribution/Containerfile -t llama-stack-rh .
+```
+
+## Running the Container
+
+### Running in Standalone Mode (No Kubernetes)
+
+To run the container in standalone mode without Kubernetes dependencies, set the `STANDALONE` environment variable:
+
+```bash
+# Using Docker
+docker run -e STANDALONE=true \
+  -e VLLM_URL=http://host.docker.internal:8000/v1 \
+  -e INFERENCE_MODEL=your-model-name \
+  -p 8321:8321 \
+  llama-stack-rh
+
+# Using Podman
+podman run -e STANDALONE=true \
+  -e VLLM_URL=http://host.docker.internal:8000/v1 \
+  -e INFERENCE_MODEL=your-model-name \
+  -p 8321:8321 \
+  llama-stack-rh
+```
+
+### Running in Full Mode (With Kubernetes)
+
+To run with all features including TrustyAI providers (requires Kubernetes/OpenShift):
+
+```bash
+# Using Docker
+docker run -p 8321:8321 llama-stack-rh
+
+# Using Podman
+podman run -p 8321:8321 llama-stack-rh
 ```
 
 ## Notes

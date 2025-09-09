@@ -5,7 +5,15 @@ RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 {dependencies}
 RUN pip install --no-cache llama-stack==0.2.18
 RUN mkdir -p ${{HOME}}/.llama/providers.d ${{HOME}}/.cache
-COPY distribution/run.yaml ${{APP_ROOT}}/run.yaml
+
+# Copy both configurations
+COPY distribution/run.yaml ${{APP_ROOT}}/run-full.yaml
+COPY distribution/run-standalone.yaml ${{APP_ROOT}}/run-standalone.yaml
+
+# Copy the entrypoint script
+COPY --chmod=755 distribution/entrypoint.sh ${{APP_ROOT}}/entrypoint.sh
+
+# Copy providers directory (will be filtered by entrypoint script)
 COPY distribution/providers.d/ ${{HOME}}/.llama/providers.d/
 
-ENTRYPOINT ["python", "-m", "llama_stack.core.server.server", "/opt/app-root/run.yaml"]
+ENTRYPOINT ["/opt/app-root/entrypoint.sh"]
