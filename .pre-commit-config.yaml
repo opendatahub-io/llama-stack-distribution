@@ -35,6 +35,16 @@ repos:
         args: [ --fix ]
     -   id: ruff-format
 
+-   repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint
+
+-   repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+    -   id: shellcheck
+
 -   repo: local
     hooks:
       - id: pkg-gen
