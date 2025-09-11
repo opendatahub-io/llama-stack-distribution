@@ -1,6 +1,6 @@
 version: "2"
 distribution_spec:
-  description: Red Hat distribution of Llama Stack
+  description: Red Hat distribution of Llama Stack (Standalone Docker)
   providers:
     inference:
     - "remote::vllm"
@@ -8,11 +8,10 @@ distribution_spec:
     vector_io:
     - "inline::milvus"
     safety:
-    - "remote::trustyai_fms"
+    - "inline::llama-guard"
     agents:
     - "inline::meta-reference"
-    eval:
-    - "remote::trustyai_lmeval"
+    # eval: removed trustyai_lmeval provider for standalone Docker
     datasetio:
     - "remote::huggingface"
     - "inline::localfs"
@@ -32,5 +31,5 @@ additional_pip_packages:
 - aiosqlite
 - sqlalchemy[asyncio]
 image_type: container
-image_name: llama-stack-rh
-external_providers_dir: distribution/providers.d
+image_name: llama-stack-rh-standalone
+# external_providers_dir: distribution/providers.d  # Disabled for standalone mode
