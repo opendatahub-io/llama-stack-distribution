@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 BASE_REQUIREMENTS = [
-    "llama-stack==0.2.18",
+    "llama-stack==0.2.21",
 ]
 
 
@@ -81,7 +81,7 @@ def get_dependencies():
                     )  # Sort the package names and remove duplicates
 
                     # Determine command type and format accordingly
-                    if "--index-url" in line:
+                    if ("--index-url" in line) or ("--extra-index-url" in line):
                         full_cmd = " ".join(cmd_parts + [" ".join(packages)])
                         torch_deps.append(full_cmd)
                     elif "--no-deps" in line:

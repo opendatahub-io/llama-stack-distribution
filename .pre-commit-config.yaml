@@ -56,4 +56,4 @@ repos:
         always_run: true
         files: ^distribution/.*$
         additional_dependencies:
-          - llama-stack==0.2.18
+          - llama-stack==0.2.21

@@ -9,7 +9,7 @@ RUN pip install \
     aiosqlite \
     autoevals \
     chardet \
-    datasets \
+    datasets>=4.0.0 \
     fastapi \
     fire \
     httpx \
@@ -38,9 +38,9 @@ RUN pip install \
     tqdm \
     transformers \
     uvicorn
-RUN pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchao>=0.12.0 torchvision
 RUN pip install --no-deps sentence-transformers
-RUN pip install --no-cache llama-stack==0.2.18
+RUN pip install --no-cache llama-stack==0.2.21
 RUN mkdir -p ${HOME}/.llama/providers.d ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
 COPY distribution/providers.d/ ${HOME}/.llama/providers.d/
