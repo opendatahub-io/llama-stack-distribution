@@ -106,6 +106,14 @@ providers:
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
     config: {}
+  files:
+  - provider_id: meta-reference-files
+    provider_type: inline::localfs
+    config:
+      storage_dir: /opt/app-root/src/.llama/distributions/rh/files
+      metadata_store:
+        type: sqlite
+        db_path: /opt/app-root/src/.llama/distributions/rh/files_metadata.db
 metadata_store:
   type: sqlite
   db_path: /opt/app-root/src/.llama/distributions/rh/registry.db
