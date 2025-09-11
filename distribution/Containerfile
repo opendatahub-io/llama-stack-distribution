@@ -6,12 +6,6 @@ WORKDIR /opt/app-root
 
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 RUN pip install \
-    --extra-index-url \
-    https://download.pytorch.org/whl/cpu \
-    torch \
-    torchao>=0.12.0 \
-    torchvision
-RUN pip install \
     aiosqlite \
     autoevals \
     chardet \
@@ -44,6 +38,7 @@ RUN pip install \
     tqdm \
     transformers \
     uvicorn
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchao>=0.12.0 torchvision
 RUN pip install --no-deps sentence-transformers
 RUN pip install --no-cache llama-stack==0.2.21
 RUN mkdir -p ${HOME}/.llama/providers.d ${HOME}/.cache
