@@ -7,8 +7,10 @@ function start_and_wait_for_llama_stack_container {
   docker run \
     -d \
     --pull=never \
+    --net=host \
     -p 8321:8321 \
     --env INFERENCE_MODEL="$INFERENCE_MODEL" \
+    --env VLLM_URL="$VLLM_URL" \
     --env TRUSTYAI_LMEVAL_USE_K8S=False \
     --env TRUSTYAI_LM_EVAL_NAMESPACE=dummy \
     --name llama-stack \

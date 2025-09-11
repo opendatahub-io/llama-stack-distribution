@@ -11,6 +11,7 @@ runs:
           --name vllm \
           -p 8000:8000 \
           --privileged=true \
+          --net=host \
           quay.io/higginsd/vllm-cpu:65393ee064 \
           --host 0.0.0.0 \
           --port 8000 \
