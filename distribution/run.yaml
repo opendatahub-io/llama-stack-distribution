@@ -10,6 +10,7 @@ apis:
 - telemetry
 - tool_runtime
 - vector_io
+- files
 providers:
   inference:
   - provider_id: vllm-inference
