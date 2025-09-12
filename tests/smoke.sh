@@ -12,7 +12,6 @@ function start_and_wait_for_llama_stack_container {
     --env INFERENCE_MODEL="$INFERENCE_MODEL" \
     --env VLLM_URL="$VLLM_URL" \
     --env TRUSTYAI_LMEVAL_USE_K8S=False \
-    --env TRUSTYAI_LM_EVAL_NAMESPACE=dummy \
     --name llama-stack \
     "$IMAGE_NAME:$GITHUB_SHA"
   echo "Started Llama Stack container..."
