@@ -7,6 +7,7 @@ WORKDIR /opt/app-root
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 RUN pip install \
     aiosqlite \
+    asyncpg \
     autoevals \
     boto3 \
     chardet \
