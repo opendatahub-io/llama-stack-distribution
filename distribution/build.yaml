@@ -6,12 +6,13 @@ distribution_spec:
     - provider_type: remote::vllm
     - provider_type: remote::bedrock
     - provider_type: inline::sentence-transformers
+    - provider_type: remote::watsonx
     vector_io:
     - provider_type: inline::milvus
     - provider_type: remote::milvus
     safety:
     - provider_type: remote::trustyai_fms
-      module: llama_stack_provider_trustyai_fms==0.2.1
+      module: llama_stack_provider_trustyai_fms==0.2.2
     agents:
     - provider_type: inline::meta-reference
     eval:
