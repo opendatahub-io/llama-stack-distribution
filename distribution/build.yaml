@@ -8,6 +8,7 @@ distribution_spec:
     - provider_type: inline::sentence-transformers
     vector_io:
     - provider_type: inline::milvus
+    - provider_type: remote::milvus
     safety:
     - provider_type: remote::trustyai_fms
     agents:
