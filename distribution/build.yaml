@@ -6,6 +6,7 @@ distribution_spec:
     - provider_type: remote::vllm
     - provider_type: remote::bedrock
     - provider_type: inline::sentence-transformers
+    - provider_type: remote::watsonx
     vector_io:
     - provider_type: inline::milvus
     - provider_type: remote::milvus
