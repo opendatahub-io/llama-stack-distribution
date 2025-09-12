@@ -35,6 +35,8 @@ distribution_spec:
 additional_pip_packages:
 - aiosqlite
 - sqlalchemy[asyncio]
+- asyncpg
+- psycopg2-binary
 image_type: container
 image_name: llama-stack-rh
 external_providers_dir: distribution/providers.d
