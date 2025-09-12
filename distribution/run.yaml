@@ -10,6 +10,7 @@ apis:
 - telemetry
 - tool_runtime
 - vector_io
+- files
 providers:
   inference:
   - provider_id: vllm-inference
@@ -44,6 +45,20 @@ providers:
         type: sqlite
         namespace: null
         db_path: /opt/app-root/src/.llama/distributions/rh/milvus_registry.db
+  - provider_id: ${env.MILVUS_ENDPOINT:+milvus-remote}
+    provider_type: remote::milvus
+    config:
+      uri: ${env.MILVUS_ENDPOINT:=}
+      token: ${env.MILVUS_TOKEN:=}
+      secure: ${env.MILVUS_SECURE:=}
+      consistency_level: ${env.MILVUS_CONSISTENCY_LEVEL:=}
+      ca_pem_path: ${env.MILVUS_CA_PEM_PATH:=}
+      client_pem_path: ${env.MILVUS_CLIENT_PEM_PATH:=}
+      client_key_path: ${env.MILVUS_CLIENT_KEY_PATH:=}
+      kvstore:
+        type: sqlite
+        namespace: null
+        db_path: /opt/app-root/src/.llama/distributions/rh/milvus_remote_registry.db
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
@@ -66,7 +81,7 @@ providers:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
     config:
-        use_k8s: True
+        use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
         base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
   datasetio:
   - provider_id: huggingface
