@@ -11,11 +11,12 @@ distribution_spec:
     - provider_type: remote::milvus
     safety:
     - provider_type: remote::trustyai_fms
+      module: llama_stack_provider_trustyai_fms==0.2.1
     agents:
     - provider_type: inline::meta-reference
     eval:
     - provider_type: remote::trustyai_lmeval
-      module: llama_stack_provider_lmeval==0.2.3
+      module: llama_stack_provider_lmeval==0.2.4
     datasetio:
     - provider_type: remote::huggingface
     - provider_type: inline::localfs

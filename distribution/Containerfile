@@ -15,7 +15,6 @@ RUN pip install \
     fastapi \
     fire \
     httpx \
-    llama_stack_provider_trustyai_fms==0.2.1 \
     matplotlib \
     mcp>=1.8.1 \
     nltk \
@@ -39,7 +38,9 @@ RUN pip install \
     transformers \
     uvicorn
 RUN pip install \
-    llama_stack_provider_lmeval==0.2.3
+    llama_stack_provider_lmeval==0.2.4
+RUN pip install \
+    llama_stack_provider_trustyai_fms==0.2.1
 RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchao>=0.12.0 torchvision
 RUN pip install --no-deps sentence-transformers
 RUN pip install --no-cache llama-stack==0.2.21
