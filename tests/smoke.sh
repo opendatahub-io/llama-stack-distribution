@@ -69,6 +69,5 @@ main() {
   echo "===> Smoke test completed successfully!"
 }
 
-trap 'docker rm -f -v llama-stack >/dev/null 2>&1 || true' EXIT
 main "$@"
 exit 0
