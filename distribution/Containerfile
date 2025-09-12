@@ -15,6 +15,7 @@ RUN pip install \
     fastapi \
     fire \
     httpx \
+    ibm_watsonx_ai \
     matplotlib \
     mcp>=1.8.1 \
     nltk \
