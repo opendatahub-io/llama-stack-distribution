@@ -1,14 +1,18 @@
-# Red Hat Distribution Build Instructions
+# Open Data Hub Llama Stack Distribution
 
-This directory contains the necessary files to build a Red Hat compatible container image for the llama-stack.
+This directory contains the necessary files to build an Open Data Hub-compatible container image for [Llama Stack](https://github.com/llamastack/llama-stack).
 
-## Prerequisites
+To learn more about the distribution image content, see the [README](distribution/README.md) in the `distribution/` directory.
+
+## Build Instructions
+
+### Prerequisites
 
 - Python >=3.11
 - `llama` CLI tool installed: `pip install llama-stack`
 - Podman or Docker installed
 
-## Generating the Containerfile
+### Generating the Containerfile
 
 The Containerfile is auto-generated from a template. To generate it:
 
@@ -23,26 +27,26 @@ This will:
 - Generate dependencies using `llama stack build`
 - Create a new `Containerfile` with the required dependencies
 
-## Editing the Containerfile
+### Editing the Containerfile
 
 The Containerfile is auto-generated from a template. To edit it, you can modify the template in `distribution/Containerfile.in` and run the build script again.
 NEVER edit the generated `Containerfile` manually.
 
-## Building the Container Image
+### Building the Container Image
 
 Once the Containerfile is generated, you can build the image using either Podman or Docker:
 
-### Using Podman build image for x86_64
+#### Using Podman build image for x86_64
 
 ```bash
 podman build --platform linux/amd64 -f distribution/Containerfile -t rh .
 ```
 
-## Notes
+### Notes
 
 - The generated Containerfile should not be modified manually as it will be overwritten the next time you run the build script
 
-## Push the image to a registry
+### Push the image to a registry
 
 ```bash
 podman push <build-ID> quay.io/opendatahub/llama-stack:rh-distribution
