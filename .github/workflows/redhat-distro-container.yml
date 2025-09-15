@@ -74,6 +74,45 @@ jobs:
         shell: bash
         run: ./tests/run_integration_tests.sh
 
+      - name: Gather logs and debugging information
+        if: always()
+        shell: bash
+        run: |
+          # Create logs directory
+          mkdir -p logs
+
+          docker logs llama-stack > logs/llama-stack.log 2>&1 || echo "Failed to get llama-stack logs" > logs/llama-stack.log
+          docker logs vllm > logs/vllm.log 2>&1 || echo "Failed to get vllm logs" > logs/vllm.log
+
+          # Gather system information
+          echo "=== System information ==="
+          {
+            echo "Disk usage:"
+            df -h
+            echo "Memory usage:"
+            free -h
+            echo "Docker images:"
+            docker images
+            echo "Docker containers:"
+            docker ps -a
+          } > logs/system-info.log 2>&1
+
+          # Gather integration test logs if they exist
+          echo "=== Integration test artifacts ==="
+          if [ -d "/tmp/llama-stack-integration-tests" ]; then
+            find /tmp/llama-stack-integration-tests -name "*.log" -o -name "pytest.log" -o -name "*.out" 2>/dev/null | while read -r file; do
+              cp "$file" "logs/$(basename "$file")" || true
+            done
+          fi
+
+      - name: Upload logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.7.0
+        with:
+          name: ci-logs-${{ github.sha }}
+          path: logs/
+          retention-days: 7
+
       - name: cleanup
         if: always()
         shell: bash
