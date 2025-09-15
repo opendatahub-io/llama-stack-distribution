@@ -5,5 +5,5 @@
 * @cdoern @derekhiggins @Elbehery @leseb @mfleader @nathan-weinberg @rhdedgar @rhuss @skamenan7 @VaishnaviHire
 
 # These owners will own only CI and testing related infrastructure
-.github/ @Artemon-line
-tests/ @Artemon-line
+.github/ @Artemon-line @kami619
+tests/ @Artemon-line @kami619
