@@ -49,6 +49,11 @@ providers:
       api_base: ${env.AZURE_API_BASE:=}
       api_version: ${env.AZURE_API_VERSION:=}
       api_type: ${env.AZURE_API_TYPE:=}
+  - provider_id: ${env.VERTEX_AI_PROJECT:+vertexai}
+    provider_type: remote::vertexai
+    config:
+      project: ${env.VERTEX_AI_PROJECT:=}
+      location: ${env.VERTEX_AI_LOCATION:=us-central1}
   vector_io:
   - provider_id: milvus
     provider_type: inline::milvus

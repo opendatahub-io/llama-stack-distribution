@@ -8,6 +8,7 @@ distribution_spec:
     - provider_type: inline::sentence-transformers
     - provider_type: remote::watsonx
     - provider_type: remote::azure
+    - provider_type: remote::vertexai
     vector_io:
     - provider_type: inline::milvus
     - provider_type: remote::milvus

@@ -14,6 +14,7 @@ RUN pip install \
     'datasets>=4.0.0' \
     fastapi \
     fire \
+    google-cloud-aiplatform \
     httpx \
     ibm_watsonx_ai \
     litellm \
