@@ -9,7 +9,6 @@ runs:
         # Start vllm container
         docker run -d \
           --name vllm \
-          -p 8000:8000 \
           --privileged=true \
           --net=host \
           quay.io/higginsd/vllm-cpu:65393ee064 \
