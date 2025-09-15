@@ -9,6 +9,7 @@ pull_request_rules:
     - base=main
     - label!=do-not-merge
     - label!=needs-rebase
+    - label!=hold
     - check-success=pre-commit
     - check-success=title-check
 
