@@ -53,6 +53,7 @@ function run_integration_tests() {
     uv run pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
         --text-model=vllm-inference/"$INFERENCE_MODEL" \
+        --embedding-model=granite-embedding-125m \
         -k "not ($SKIP_TESTS)"
 }
 
