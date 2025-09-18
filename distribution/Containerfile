@@ -16,6 +16,7 @@ RUN pip install \
     fire \
     httpx \
     ibm_watsonx_ai \
+    litellm \
     matplotlib \
     'mcp>=1.8.1' \
     nltk \
