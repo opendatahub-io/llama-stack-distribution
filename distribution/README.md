@@ -14,6 +14,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | eval | remote::trustyai_lmeval |
 | files | inline::localfs |
 | inference | inline::sentence-transformers |
+| inference | remote::azure |
 | inference | remote::bedrock |
 | inference | remote::vllm |
 | inference | remote::watsonx |
