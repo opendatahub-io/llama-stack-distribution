@@ -88,6 +88,14 @@ def get_dependencies():
                         for package in packages
                     ]
 
+                    # Modify pymilvus package to include milvus-lite extra
+                    packages = [
+                        package.replace("pymilvus", "pymilvus[milvus-lite]")
+                        if "pymilvus" in package
+                        else package
+                        for package in packages
+                    ]
+
                     # Determine command type and format accordingly
                     if ("--index-url" in line) or ("--extra-index-url" in line):
                         full_cmd = " ".join(cmd_parts + [" ".join(packages)])
