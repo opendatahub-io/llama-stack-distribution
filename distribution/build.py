@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 BASE_REQUIREMENTS = [
-    "llama-stack==0.2.21",
+    "llama-stack==0.2.22",
 ]
 
 

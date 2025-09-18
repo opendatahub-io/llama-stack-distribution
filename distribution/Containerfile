@@ -20,7 +20,6 @@ RUN pip install \
     mcp>=1.8.1 \
     nltk \
     numpy \
-    openai \
     opentelemetry-exporter-otlp-proto-http \
     opentelemetry-sdk \
     pandas \
@@ -44,7 +43,7 @@ RUN pip install \
     llama_stack_provider_trustyai_fms==0.2.2
 RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchao>=0.12.0 torchvision
 RUN pip install --no-deps sentence-transformers
-RUN pip install --no-cache llama-stack==0.2.21
+RUN pip install --no-cache llama-stack==0.2.22
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
 
