@@ -42,6 +42,13 @@ providers:
       url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
       api_key: ${env.WATSONX_API_KEY:=}
       project_id: ${env.WATSONX_PROJECT_ID:=}
+  - provider_id: ${env.AZURE_API_KEY:+azure}
+    provider_type: remote::azure
+    config:
+      api_key: ${env.AZURE_API_KEY:=}
+      api_base: ${env.AZURE_API_BASE:=}
+      api_version: ${env.AZURE_API_VERSION:=}
+      api_type: ${env.AZURE_API_TYPE:=}
   vector_io:
   - provider_id: milvus
     provider_type: inline::milvus
