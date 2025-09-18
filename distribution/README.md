@@ -16,6 +16,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | inline::sentence-transformers |
 | inference | remote::azure |
 | inference | remote::bedrock |
+| inference | remote::vertexai |
 | inference | remote::vllm |
 | inference | remote::watsonx |
 | safety | remote::trustyai_fms |
