@@ -25,7 +25,7 @@ RUN pip install \
     pandas \
     pillow \
     psycopg2-binary \
-    'pymilvus>=2.4.10' \
+    'pymilvus[milvus-lite]>=2.4.10' \
     pymongo \
     pypdf \
     redis \
