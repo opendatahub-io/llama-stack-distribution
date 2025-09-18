@@ -80,6 +80,14 @@ def get_dependencies():
                         set(parts[3].split())
                     )  # Sort the package names and remove duplicates
 
+                    # Add quotes to packages with > or < to prevent bash redirection
+                    packages = [
+                        f"'{package}'"
+                        if (">" in package or "<" in package)
+                        else package
+                        for package in packages
+                    ]
+
                     # Determine command type and format accordingly
                     if ("--index-url" in line) or ("--extra-index-url" in line):
                         full_cmd = " ".join(cmd_parts + [" ".join(packages)])
