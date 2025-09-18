@@ -20,7 +20,7 @@ providers:
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
-  - provider_id: bedrock-inference
+  - provider_id: ${env.AWS_ACCESS_KEY_ID:+bedrock}
     provider_type: remote::bedrock
     config:
       aws_access_key_id: ${env.AWS_ACCESS_KEY_ID:=}
@@ -36,7 +36,7 @@ providers:
   - provider_id: sentence-transformers
     provider_type: inline::sentence-transformers
     config: {}
-  - provider_id: watsonx
+  - provider_id: ${env.WATSONX_API_KEY:+watsonx}
     provider_type: remote::watsonx
     config:
       url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
