@@ -8,46 +8,27 @@ To learn more about the distribution image content, see the [README](distributio
 
 ### Prerequisites
 
-- Python >=3.11
-- `llama` CLI tool installed: `pip install llama-stack`
-- Podman or Docker installed
+- The `pre-commit` tool is [installed](https://pre-commit.com/#install)
 
 ### Generating the Containerfile
 
 The Containerfile is auto-generated from a template. To generate it:
 
-1. Make sure you have the `llama` CLI tool installed
-2. Run the build script from root of this git repo:
-   ```bash
-   ./distribution/build.py
-   ```
+```
+pre-commit run --all-files
+```
 
 This will:
-- Check for the `llama` CLI installation
-- Generate dependencies using `llama stack build`
+- Install the dependencies (llama-stack etc) in a virtual environment
+- Execute the build script `./distribution/build.py`
+
+The build script will:
+- Execute the `llama` CLI to generate the dependencies
 - Create a new `Containerfile` with the required dependencies
 
 ### Editing the Containerfile
 
-The Containerfile is auto-generated from a template. To edit it, you can modify the template in `distribution/Containerfile.in` and run the build script again.
-NEVER edit the generated `Containerfile` manually.
+The Containerfile is auto-generated from a template. To edit it, you can modify the template in `distribution/Containerfile.in` and run pre-commit again.
 
-### Building the Container Image
-
-Once the Containerfile is generated, you can build the image using either Podman or Docker:
-
-#### Using Podman build image for x86_64
-
-```bash
-podman build --platform linux/amd64 -f distribution/Containerfile -t rh .
-```
-
-### Notes
-
-- The generated Containerfile should not be modified manually as it will be overwritten the next time you run the build script
-
-### Push the image to a registry
-
-```bash
-podman push <build-ID> quay.io/opendatahub/llama-stack:rh-distribution
-```
+> **Warning:**
+*NEVER* edit the generated `Containerfile` manually.
