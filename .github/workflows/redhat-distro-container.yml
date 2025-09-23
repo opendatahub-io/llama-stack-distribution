@@ -8,6 +8,11 @@ on:
     types:
       - opened
       - synchronize
+    paths:
+      - '.github/actions/setup-vllm/action.yml'
+      - '.github/workflows/redhat-distro-container.yml'
+      - 'distribution/**'
+      - 'tests/**'
   push:
     branches:
       - main
