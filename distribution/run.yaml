@@ -13,10 +13,10 @@ apis:
 - files
 providers:
   inference:
-  - provider_id: vllm-inference
+  - provider_id: ${env.VLLM_URL:+vllm-inference}
     provider_type: remote::vllm
     config:
-      url: ${env.VLLM_URL:=http://localhost:8000/v1}
+      url: ${env.VLLM_URL:=}
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
@@ -107,7 +107,7 @@ providers:
     module: llama_stack_provider_lmeval==0.2.4
     config:
         use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
-        base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
+        base_url: ${env.VLLM_URL:=}
   datasetio:
   - provider_id: huggingface
     provider_type: remote::huggingface
@@ -175,8 +175,8 @@ inference_store:
   db_path: /opt/app-root/src/.llama/distributions/rh/inference_store.db
 models:
 - metadata: {}
-  model_id: ${env.INFERENCE_MODEL}
-  provider_id: vllm-inference
+  model_id: ${env.INFERENCE_MODEL:=dummy}
+  provider_id: ${env.VLLM_URL:+vllm-inference}
   model_type: llm
 - metadata:
     embedding_dimension: 768
