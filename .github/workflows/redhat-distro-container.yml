@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       INFERENCE_MODEL: meta-llama/Llama-3.2-1B-Instruct
+      EMBEDDING_MODEL: granite-embedding-125m
       VLLM_URL: http://localhost:8000/v1
     strategy:
       matrix:

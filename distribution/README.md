@@ -11,7 +11,9 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | agents | inline::meta-reference |
 | datasetio | inline::localfs |
 | datasetio | remote::huggingface |
+| eval | inline::trustyai_ragas |
 | eval | remote::trustyai_lmeval |
+| eval | remote::trustyai_ragas |
 | files | inline::localfs |
 | inference | inline::sentence-transformers |
 | inference | remote::azure |
