@@ -91,7 +91,7 @@ def get_dependencies():
                     # Modify pymilvus package to include milvus-lite extra
                     packages = [
                         package.replace("pymilvus", "pymilvus[milvus-lite]")
-                        if "pymilvus" in package
+                        if "pymilvus" in package and "[milvus-lite]" not in package
                         else package
                         for package in packages
                     ]
