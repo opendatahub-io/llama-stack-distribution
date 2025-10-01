@@ -120,7 +120,14 @@ def get_dependencies():
         all_deps.extend(sorted(no_deps))  # No-deps installs
         all_deps.extend(sorted(no_cache))  # No-cache installs
 
-        return "\n".join(all_deps)
+        # TODO: Remove this once we have a stable PyPI index for trustyai_fms
+        # Fix trustyai_fms package to use test PyPI index
+        result = "\n".join(all_deps)
+        result = result.replace(
+            "llama_stack_provider_trustyai_fms==0.2.3",
+            "--extra-index-url https://test.pypi.org/simple/ llama_stack_provider_trustyai_fms==0.2.3",
+        )
+        return result
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {e}")
         print(f"Command output: {e.output}")
