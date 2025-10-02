@@ -39,8 +39,8 @@ def extract_llama_stack_version():
 def gen_distro_table(providers_data):
     # Start with table header
     table_lines = [
-        "| API | Provider | Enabled by default? |",
-        "|-----|----------|---------------------|",
+        "| API | Provider | Enabled by default? | How to enable |",
+        "|-----|----------|---------------------|---------------|",
     ]
 
     # Create a list to collect all API-Provider pairs for sorting
@@ -56,21 +56,39 @@ def gen_distro_table(providers_data):
 
                     # Check if provider_id contains the conditional syntax ${<something>:+<something>}
                     # This regex matches the pattern ${...} containing :+
-                    is_conditional = bool(
-                        re.search(r"\$\{[^}]*:\+[^}]*\}", str(provider_id))
+                    conditional_match = re.search(
+                        r"\$\{([^}]*:\+[^}]*)\}", str(provider_id)
                     )
-                    enabled_by_default = "No" if is_conditional else "Yes"
+
+                    if conditional_match:
+                        enabled_by_default = "No"
+                        # Extract the environment variable name (part before :+)
+                        env_var = conditional_match.group(1).split(":+")[0]
+                        # Remove "env." prefix if present
+                        if env_var.startswith("env."):
+                            env_var = env_var[4:]
+                        how_to_enable = f"Set the `{env_var}` environment variable"
+                    else:
+                        enabled_by_default = "Yes"
+                        how_to_enable = "N/A"
 
                     api_provider_pairs.append(
-                        (api_name, provider_type, enabled_by_default)
+                        (api_name, provider_type, enabled_by_default, how_to_enable)
                     )
 
     # Sort first by API name, then by provider type
     api_provider_pairs.sort(key=lambda x: (x[0], x[1]))
 
     # Add sorted pairs to table
-    for api_name, provider_type, enabled_by_default in api_provider_pairs:
-        table_lines.append(f"| {api_name} | {provider_type} | {enabled_by_default} |")
+    for (
+        api_name,
+        provider_type,
+        enabled_by_default,
+        how_to_enable,
+    ) in api_provider_pairs:
+        table_lines.append(
+            f"| {api_name} | {provider_type} | {enabled_by_default} | {how_to_enable} |"
+        )
 
     return "\n".join(table_lines)
 
