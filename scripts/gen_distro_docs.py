@@ -38,7 +38,10 @@ def extract_llama_stack_version():
 
 def gen_distro_table(providers_data):
     # Start with table header
-    table_lines = ["| API | Provider |", "|-----|----------|"]
+    table_lines = [
+        "| API | Provider | Enabled by default? |",
+        "|-----|----------|---------------------|",
+    ]
 
     # Create a list to collect all API-Provider pairs for sorting
     api_provider_pairs = []
@@ -49,14 +52,25 @@ def gen_distro_table(providers_data):
             for provider in provider_list:
                 if isinstance(provider, dict) and "provider_type" in provider:
                     provider_type = provider["provider_type"]
-                    api_provider_pairs.append((api_name, provider_type))
+                    provider_id = provider.get("provider_id", "")
+
+                    # Check if provider_id contains the conditional syntax ${<something>:+<something>}
+                    # This regex matches the pattern ${...} containing :+
+                    is_conditional = bool(
+                        re.search(r"\$\{[^}]*:\+[^}]*\}", str(provider_id))
+                    )
+                    enabled_by_default = "No" if is_conditional else "Yes"
+
+                    api_provider_pairs.append(
+                        (api_name, provider_type, enabled_by_default)
+                    )
 
     # Sort first by API name, then by provider type
     api_provider_pairs.sort(key=lambda x: (x[0], x[1]))
 
     # Add sorted pairs to table
-    for api_name, provider_type in api_provider_pairs:
-        table_lines.append(f"| {api_name} | {provider_type} |")
+    for api_name, provider_type, enabled_by_default in api_provider_pairs:
+        table_lines.append(f"| {api_name} | {provider_type} | {enabled_by_default} |")
 
     return "\n".join(table_lines)
 

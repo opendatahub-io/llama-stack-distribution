@@ -8,28 +8,28 @@ The image is currently shipping with upstream Llama Stack version [0.2.22](https
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
-| API | Provider |
-|-----|----------|
-| agents | inline::meta-reference |
-| datasetio | inline::localfs |
-| datasetio | remote::huggingface |
-| eval | remote::trustyai_lmeval |
-| files | inline::localfs |
-| inference | inline::sentence-transformers |
-| inference | remote::azure |
-| inference | remote::bedrock |
-| inference | remote::openai |
-| inference | remote::vertexai |
-| inference | remote::vllm |
-| inference | remote::watsonx |
-| safety | remote::trustyai_fms |
-| scoring | inline::basic |
-| scoring | inline::braintrust |
-| scoring | inline::llm-as-judge |
-| telemetry | inline::meta-reference |
-| tool_runtime | inline::rag-runtime |
-| tool_runtime | remote::brave-search |
-| tool_runtime | remote::model-context-protocol |
-| tool_runtime | remote::tavily-search |
-| vector_io | inline::milvus |
-| vector_io | remote::milvus |
+| API | Provider | Enabled by default? |
+|-----|----------|---------------------|
+| agents | inline::meta-reference | Yes |
+| datasetio | inline::localfs | Yes |
+| datasetio | remote::huggingface | Yes |
+| eval | remote::trustyai_lmeval | Yes |
+| files | inline::localfs | Yes |
+| inference | inline::sentence-transformers | Yes |
+| inference | remote::azure | No |
+| inference | remote::bedrock | No |
+| inference | remote::openai | No |
+| inference | remote::vertexai | No |
+| inference | remote::vllm | No |
+| inference | remote::watsonx | No |
+| safety | remote::trustyai_fms | Yes |
+| scoring | inline::basic | Yes |
+| scoring | inline::braintrust | Yes |
+| scoring | inline::llm-as-judge | Yes |
+| telemetry | inline::meta-reference | Yes |
+| tool_runtime | inline::rag-runtime | Yes |
+| tool_runtime | remote::brave-search | Yes |
+| tool_runtime | remote::model-context-protocol | Yes |
+| tool_runtime | remote::tavily-search | Yes |
+| vector_io | inline::milvus | Yes |
+| vector_io | remote::milvus | No |
