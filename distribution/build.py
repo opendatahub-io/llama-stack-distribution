@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 BASE_REQUIREMENTS = [
-    "llama-stack==0.2.22",
+    "llama-stack==0.2.23",
 ]
 
 
@@ -95,6 +95,7 @@ def get_dependencies():
                         else package
                         for package in packages
                     ]
+                    packages = sorted(set(packages))
 
                     # Determine command type and format accordingly
                     if ("--index-url" in line) or ("--extra-index-url" in line):
