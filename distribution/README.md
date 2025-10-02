@@ -8,28 +8,28 @@ The image is currently shipping with upstream Llama Stack version [0.2.22](https
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
-| API | Provider | Enabled by default? |
-|-----|----------|---------------------|
-| agents | inline::meta-reference | Yes |
-| datasetio | inline::localfs | Yes |
-| datasetio | remote::huggingface | Yes |
-| eval | remote::trustyai_lmeval | Yes |
-| files | inline::localfs | Yes |
-| inference | inline::sentence-transformers | Yes |
-| inference | remote::azure | No |
-| inference | remote::bedrock | No |
-| inference | remote::openai | No |
-| inference | remote::vertexai | No |
-| inference | remote::vllm | No |
-| inference | remote::watsonx | No |
-| safety | remote::trustyai_fms | Yes |
-| scoring | inline::basic | Yes |
-| scoring | inline::braintrust | Yes |
-| scoring | inline::llm-as-judge | Yes |
-| telemetry | inline::meta-reference | Yes |
-| tool_runtime | inline::rag-runtime | Yes |
-| tool_runtime | remote::brave-search | Yes |
-| tool_runtime | remote::model-context-protocol | Yes |
-| tool_runtime | remote::tavily-search | Yes |
-| vector_io | inline::milvus | Yes |
-| vector_io | remote::milvus | No |
+| API | Provider | Enabled by default? | How to enable |
+|-----|----------|---------------------|---------------|
+| agents | inline::meta-reference | Yes | N/A |
+| datasetio | inline::localfs | Yes | N/A |
+| datasetio | remote::huggingface | Yes | N/A |
+| eval | remote::trustyai_lmeval | Yes | N/A |
+| files | inline::localfs | Yes | N/A |
+| inference | inline::sentence-transformers | Yes | N/A |
+| inference | remote::azure | No | Set the `AZURE_API_KEY` environment variable |
+| inference | remote::bedrock | No | Set the `AWS_ACCESS_KEY_ID` environment variable |
+| inference | remote::openai | No | Set the `OPENAI_API_KEY` environment variable |
+| inference | remote::vertexai | No | Set the `VERTEX_AI_PROJECT` environment variable |
+| inference | remote::vllm | No | Set the `VLLM_URL` environment variable |
+| inference | remote::watsonx | No | Set the `WATSONX_API_KEY` environment variable |
+| safety | remote::trustyai_fms | Yes | N/A |
+| scoring | inline::basic | Yes | N/A |
+| scoring | inline::braintrust | Yes | N/A |
+| scoring | inline::llm-as-judge | Yes | N/A |
+| telemetry | inline::meta-reference | Yes | N/A |
+| tool_runtime | inline::rag-runtime | Yes | N/A |
+| tool_runtime | remote::brave-search | Yes | N/A |
+| tool_runtime | remote::model-context-protocol | Yes | N/A |
+| tool_runtime | remote::tavily-search | Yes | N/A |
+| vector_io | inline::milvus | Yes | N/A |
+| vector_io | remote::milvus | No | Set the `MILVUS_ENDPOINT` environment variable |
