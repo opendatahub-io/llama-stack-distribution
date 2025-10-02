@@ -13,7 +13,9 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | agents | inline::meta-reference | Yes | N/A |
 | datasetio | inline::localfs | Yes | N/A |
 | datasetio | remote::huggingface | Yes | N/A |
+| eval | inline::trustyai_ragas | No | Set the `EMBEDDING_MODEL` environment variable |
 | eval | remote::trustyai_lmeval | Yes | N/A |
+| eval | remote::trustyai_ragas | No | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
 | files | inline::localfs | Yes | N/A |
 | inference | inline::sentence-transformers | Yes | N/A |
 | inference | remote::azure | No | Set the `AZURE_API_KEY` environment variable |
