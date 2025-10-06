@@ -108,6 +108,23 @@ providers:
     config:
         use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
         base_url: ${env.VLLM_URL:=}
+  - provider_id: ${env.EMBEDDING_MODEL:+trustyai_ragas_inline}
+    provider_type: inline::trustyai_ragas
+    module: llama_stack_provider_ragas.inline
+    config:
+      embedding_model: ${env.EMBEDDING_MODEL:=}
+  - provider_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_ragas_remote}
+    provider_type: remote::trustyai_ragas
+    module: llama_stack_provider_ragas.remote
+    config:
+      embedding_model: ${env.EMBEDDING_MODEL:=}
+      kubeflow_config:
+        results_s3_prefix: ${env.KUBEFLOW_RESULTS_S3_PREFIX:=}
+        s3_credentials_secret_name: ${env.KUBEFLOW_S3_CREDENTIALS_SECRET_NAME:=}
+        pipelines_endpoint: ${env.KUBEFLOW_PIPELINES_ENDPOINT:=}
+        namespace: ${env.KUBEFLOW_NAMESPACE:=}
+        llama_stack_url: ${env.KUBEFLOW_LLAMA_STACK_URL:=}
+        base_image: ${env.KUBEFLOW_BASE_IMAGE:=}
   datasetio:
   - provider_id: huggingface
     provider_type: remote::huggingface

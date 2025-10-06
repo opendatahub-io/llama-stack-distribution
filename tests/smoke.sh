@@ -10,6 +10,7 @@ function start_and_wait_for_llama_stack_container {
     --net=host \
     -p 8321:8321 \
     --env INFERENCE_MODEL="$INFERENCE_MODEL" \
+    --env EMBEDDING_MODEL="$EMBEDDING_MODEL" \
     --env VLLM_URL="$VLLM_URL" \
     --env TRUSTYAI_LMEVAL_USE_K8S=False \
     --name llama-stack \
