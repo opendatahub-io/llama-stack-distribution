@@ -8,30 +8,30 @@ The image is currently shipping with upstream Llama Stack version [0.2.22](https
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
-| API | Provider | Enabled by default? | How to enable |
-|-----|----------|---------------------|---------------|
-| agents | inline::meta-reference | Yes | N/A |
-| datasetio | inline::localfs | Yes | N/A |
-| datasetio | remote::huggingface | Yes | N/A |
-| eval | inline::trustyai_ragas | No | Set the `EMBEDDING_MODEL` environment variable |
-| eval | remote::trustyai_lmeval | Yes | N/A |
-| eval | remote::trustyai_ragas | No | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
-| files | inline::localfs | Yes | N/A |
-| inference | inline::sentence-transformers | Yes | N/A |
-| inference | remote::azure | No | Set the `AZURE_API_KEY` environment variable |
-| inference | remote::bedrock | No | Set the `AWS_ACCESS_KEY_ID` environment variable |
-| inference | remote::openai | No | Set the `OPENAI_API_KEY` environment variable |
-| inference | remote::vertexai | No | Set the `VERTEX_AI_PROJECT` environment variable |
-| inference | remote::vllm | No | Set the `VLLM_URL` environment variable |
-| inference | remote::watsonx | No | Set the `WATSONX_API_KEY` environment variable |
-| safety | remote::trustyai_fms | Yes | N/A |
-| scoring | inline::basic | Yes | N/A |
-| scoring | inline::braintrust | Yes | N/A |
-| scoring | inline::llm-as-judge | Yes | N/A |
-| telemetry | inline::meta-reference | Yes | N/A |
-| tool_runtime | inline::rag-runtime | Yes | N/A |
-| tool_runtime | remote::brave-search | Yes | N/A |
-| tool_runtime | remote::model-context-protocol | Yes | N/A |
-| tool_runtime | remote::tavily-search | Yes | N/A |
-| vector_io | inline::milvus | Yes | N/A |
-| vector_io | remote::milvus | No | Set the `MILVUS_ENDPOINT` environment variable |
+| API | Provider | External? | Enabled by default? | How to enable |
+|-----|----------|-----------|---------------------|---------------|
+| agents | inline::meta-reference | No | ✅ | N/A |
+| datasetio | inline::localfs | No | ✅ | N/A |
+| datasetio | remote::huggingface | No | ✅ | N/A |
+| eval | inline::trustyai_ragas | Yes (version 0.3.0) | ❌ | Set the `EMBEDDING_MODEL` environment variable |
+| eval | remote::trustyai_lmeval | Yes (version 0.2.4) | ✅ | N/A |
+| eval | remote::trustyai_ragas | Yes (version 0.3.0) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
+| files | inline::localfs | No | ✅ | N/A |
+| inference | inline::sentence-transformers | No | ✅ | N/A |
+| inference | remote::azure | No | ❌ | Set the `AZURE_API_KEY` environment variable |
+| inference | remote::bedrock | No | ❌ | Set the `AWS_ACCESS_KEY_ID` environment variable |
+| inference | remote::openai | No | ❌ | Set the `OPENAI_API_KEY` environment variable |
+| inference | remote::vertexai | No | ❌ | Set the `VERTEX_AI_PROJECT` environment variable |
+| inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
+| inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
+| safety | remote::trustyai_fms | Yes (version 0.2.3) | ✅ | N/A |
+| scoring | inline::basic | No | ✅ | N/A |
+| scoring | inline::braintrust | No | ✅ | N/A |
+| scoring | inline::llm-as-judge | No | ✅ | N/A |
+| telemetry | inline::meta-reference | No | ✅ | N/A |
+| tool_runtime | inline::rag-runtime | No | ✅ | N/A |
+| tool_runtime | remote::brave-search | No | ✅ | N/A |
+| tool_runtime | remote::model-context-protocol | No | ✅ | N/A |
+| tool_runtime | remote::tavily-search | No | ✅ | N/A |
+| vector_io | inline::milvus | No | ✅ | N/A |
+| vector_io | remote::milvus | No | ❌ | Set the `MILVUS_ENDPOINT` environment variable |

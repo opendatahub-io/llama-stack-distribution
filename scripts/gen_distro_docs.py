@@ -36,12 +36,59 @@ def extract_llama_stack_version():
         exit(1)
 
 
+def load_external_providers_info():
+    """Load build.yaml and extract external provider information."""
+    build_yaml_path = REPO_ROOT / "distribution" / "build.yaml"
+
+    if not build_yaml_path.exists():
+        print(f"Error: {build_yaml_path} not found")
+        exit(1)
+
+    try:
+        with open(build_yaml_path, "r") as file:
+            build_yaml_data = yaml.safe_load(file)
+
+        # Extract providers section from distribution_spec
+        distribution_spec = build_yaml_data.get("distribution_spec", {})
+        providers = distribution_spec.get("providers", {})
+
+        # Create a mapping of provider_type to external info
+        external_info = {}
+
+        for _, provider_list in providers.items():
+            if isinstance(provider_list, list):
+                for provider in provider_list:
+                    if isinstance(provider, dict) and "provider_type" in provider:
+                        provider_type = provider["provider_type"]
+                        module_field = provider.get("module", "")
+
+                        if module_field:
+                            # Extract version from module field (format: package_name==version)
+                            if "==" in module_field:
+                                # Handle cases like package[extra]==version
+                                version_part = module_field.split("==")[-1]
+                                external_info[provider_type] = (
+                                    f"Yes (version {version_part})"
+                                )
+                            else:
+                                external_info[provider_type] = "Yes"
+
+        return external_info
+
+    except Exception as e:
+        print(f"Error: Error reading build.yaml: {e}")
+        exit(1)
+
+
 def gen_distro_table(providers_data):
     # Start with table header
     table_lines = [
-        "| API | Provider | Enabled by default? | How to enable |",
-        "|-----|----------|---------------------|---------------|",
+        "| API | Provider | External? | Enabled by default? | How to enable |",
+        "|-----|----------|-----------|---------------------|---------------|",
     ]
+
+    # Load external provider information from build.yaml
+    external_providers = load_external_providers_info()
 
     # Create a list to collect all API-Provider pairs for sorting
     api_provider_pairs = []
@@ -61,7 +108,7 @@ def gen_distro_table(providers_data):
                     )
 
                     if conditional_match:
-                        enabled_by_default = "No"
+                        enabled_by_default = "❌"
                         # Extract the environment variable name (part before :+)
                         env_var = conditional_match.group(1).split(":+")[0]
                         # Remove "env." prefix if present
@@ -69,11 +116,20 @@ def gen_distro_table(providers_data):
                             env_var = env_var[4:]
                         how_to_enable = f"Set the `{env_var}` environment variable"
                     else:
-                        enabled_by_default = "Yes"
+                        enabled_by_default = "✅"
                         how_to_enable = "N/A"
 
+                    # Determine external status using build.yaml data
+                    external_status = external_providers.get(provider_type, "No")
+
                     api_provider_pairs.append(
-                        (api_name, provider_type, enabled_by_default, how_to_enable)
+                        (
+                            api_name,
+                            provider_type,
+                            external_status,
+                            enabled_by_default,
+                            how_to_enable,
+                        )
                     )
 
     # Sort first by API name, then by provider type
@@ -83,11 +139,12 @@ def gen_distro_table(providers_data):
     for (
         api_name,
         provider_type,
+        external_status,
         enabled_by_default,
         how_to_enable,
     ) in api_provider_pairs:
         table_lines.append(
-            f"| {api_name} | {provider_type} | {enabled_by_default} | {how_to_enable} |"
+            f"| {api_name} | {provider_type} | {external_status} | {enabled_by_default} | {how_to_enable} |"
         )
 
     return "\n".join(table_lines)
