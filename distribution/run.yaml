@@ -104,7 +104,7 @@ providers:
   eval:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
-    module: llama_stack_provider_lmeval==0.2.4
+    module: llama_stack_provider_lmeval==0.3.0
     config:
         use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
         base_url: ${env.VLLM_URL:=}
