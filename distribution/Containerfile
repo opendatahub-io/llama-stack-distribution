@@ -40,7 +40,7 @@ RUN pip install \
     transformers \
     uvicorn
 RUN pip install \
-    llama_stack_provider_lmeval==0.2.4
+    llama_stack_provider_lmeval==0.3.0
 RUN pip install \
     llama_stack_provider_ragas[remote]==0.3.0
 RUN pip install \
