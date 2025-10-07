@@ -108,7 +108,7 @@ def gen_distro_table(providers_data):
                     )
 
                     if conditional_match:
-                        enabled_by_default = "No"
+                        enabled_by_default = "❌"
                         # Extract the environment variable name (part before :+)
                         env_var = conditional_match.group(1).split(":+")[0]
                         # Remove "env." prefix if present
@@ -116,7 +116,7 @@ def gen_distro_table(providers_data):
                             env_var = env_var[4:]
                         how_to_enable = f"Set the `{env_var}` environment variable"
                     else:
-                        enabled_by_default = "Yes"
+                        enabled_by_default = "✅"
                         how_to_enable = "N/A"
 
                     # Determine external status using build.yaml data
