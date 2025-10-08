@@ -85,7 +85,7 @@ providers:
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
-      module: llama_stack_provider_trustyai_fms==0.2.3
+      module: llama_stack_provider_trustyai_fms
       config:
         orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
         ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
@@ -104,7 +104,7 @@ providers:
   eval:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
-    module: llama_stack_provider_lmeval==0.2.4
+    module: llama_stack_provider_lmeval
     config:
         use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
         base_url: ${env.VLLM_URL:=}

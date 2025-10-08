@@ -6,12 +6,14 @@ WORKDIR /opt/app-root
 
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 RUN pip install \
+    'datasets>=4.0.0' \
+    'mcp>=1.8.1' \
+    'pymilvus[milvus-lite]>=2.4.10' \
     aiosqlite \
     asyncpg \
     autoevals \
     boto3 \
     chardet \
-    'datasets>=4.0.0' \
     fastapi \
     fire \
     google-cloud-aiplatform \
@@ -19,7 +21,6 @@ RUN pip install \
     ibm_watsonx_ai \
     litellm \
     matplotlib \
-    'mcp>=1.8.1' \
     nltk \
     numpy \
     opentelemetry-exporter-otlp-proto-http \
@@ -27,7 +28,6 @@ RUN pip install \
     pandas \
     pillow \
     psycopg2-binary \
-    'pymilvus[milvus-lite]>=2.4.10' \
     pymongo \
     pypdf \
     redis \
@@ -40,16 +40,16 @@ RUN pip install \
     transformers \
     uvicorn
 RUN pip install \
-    llama_stack_provider_lmeval==0.2.4
+    llama_stack_provider_lmeval==0.3.0
 RUN pip install \
-    llama_stack_provider_ragas==0.3.0
+    llama_stack_provider_ragas==0.3.1
 RUN pip install \
-    llama_stack_provider_ragas[remote]==0.3.0
+    llama_stack_provider_ragas[remote]==0.3.1
 RUN pip install \
     llama_stack_provider_trustyai_fms==0.2.3
-RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu torch 'torchao>=0.12.0' torchvision
+RUN pip install 'torchao>=0.12.0' --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
 RUN pip install --no-deps sentence-transformers
-RUN pip install --no-cache llama-stack==0.2.22
+RUN pip install --no-cache llama-stack==0.2.23
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
 
