@@ -1,5 +1,7 @@
 # Open Data Hub Llama Stack Distribution
 
+![Build](https://github.com/opendatahub-io/llama-stack-distribution/actions/workflows/redhat-distro-container.yml/badge.svg?branch=main)
+
 This directory contains the necessary files to build an Open Data Hub-compatible container image for [Llama Stack](https://github.com/llamastack/llama-stack).
 
 To learn more about the distribution image content, see the [README](distribution/README.md) in the `distribution/` directory.
