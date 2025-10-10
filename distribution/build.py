@@ -13,20 +13,17 @@ import sys
 import os
 from pathlib import Path
 
-LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", "0.2.23")
+CURRENT_LLAMA_STACK_VERSION = "0.2.23"
+LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
 ]
 
 source_install_command = """RUN tmp_build_dir=$(mktemp -d) && \\
-    git clone https://github.com/llamastack/llama-stack.git $tmp_build_dir && \\
+    git clone --filter=blob:none --no-checkout https://github.com/llamastack/llama-stack.git $tmp_build_dir && \\
     cd $tmp_build_dir && \\
     git checkout {llama_stack_version} && \\
     pip install --no-cache -e ."""
-
-regular_install_command = (
-    """RUN pip install --no-cache llama-stack=={llama_stack_version}"""
-)
 
 
 def get_llama_stack_install(llama_stack_version):
@@ -34,11 +31,6 @@ def get_llama_stack_install(llama_stack_version):
     if is_install_from_source(llama_stack_version):
         print(f"Installing llama-stack from source: {llama_stack_version}")
         return source_install_command.format(
-            llama_stack_version=llama_stack_version
-        ).rstrip()
-    else:
-        print(f"Installing llama-stack from PyPI: {llama_stack_version}")
-        return regular_install_command.format(
             llama_stack_version=llama_stack_version
         ).rstrip()
 
@@ -179,7 +171,13 @@ def generate_containerfile(dependencies, llama_stack_install):
     # Process template using string formatting
     containerfile_content = warning + template_content.format(
         dependencies=dependencies.rstrip(),
-        llama_stack_install=llama_stack_install,
+        llama_stack_install_source=llama_stack_install if llama_stack_install else "",
+    )
+
+    # Remove any blank lines that result from empty substitutions
+    containerfile_content = (
+        "\n".join(line for line in containerfile_content.splitlines() if line.strip())
+        + "\n"
     )
 
     # Write output

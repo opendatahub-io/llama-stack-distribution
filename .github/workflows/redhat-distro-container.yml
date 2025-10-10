@@ -68,6 +68,8 @@ jobs:
           LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
         run: |
           python3 distribution/build.py
+          # now remove the install line from the Containerfile
+          sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
       - name: Build image
         id: build
@@ -77,7 +79,7 @@ jobs:
           file: distribution/Containerfile
           platforms: ${{ matrix.platform }}
           push: false
-          tags: ${{ env.IMAGE_NAME }}:${{ github.event_name == 'workflow_dispatch' && format('source-{0}', env.LLAMA_STACK_COMMIT_SHA) || github.sha }}
+          tags: ${{ env.IMAGE_NAME }}:${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
           load: true  # needed to load for smoke test
           cache-from: type=gha
           cache-to: type=gha,mode=max
