@@ -93,15 +93,18 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Setup vllm for image test
+        if: github.event_name != 'workflow_dispatch'
         id: vllm
         uses: ./.github/actions/setup-vllm
 
       - name: Start and smoke test LLS distro image
+        if: github.event_name != 'workflow_dispatch'
         id: smoke-test
         shell: bash
         run: ./tests/smoke.sh
 
       - name: Integration tests
+        if: github.event_name != 'workflow_dispatch'
         id: integration-tests
         shell: bash
         run: ./tests/run_integration_tests.sh
