@@ -8,4 +8,4 @@ RUN pip install --no-cache llama-stack==0.2.23
 RUN mkdir -p ${{HOME}}/.llama ${{HOME}}/.cache
 COPY distribution/run.yaml ${{APP_ROOT}}/run.yaml
 
-ENTRYPOINT ["python", "-m", "llama_stack.core.server.server", "/opt/app-root/run.yaml"]
+ENTRYPOINT ["llama", "stack", "run", "/opt/app-root/run.yaml"]
