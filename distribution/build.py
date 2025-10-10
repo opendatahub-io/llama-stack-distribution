@@ -36,7 +36,8 @@ def get_llama_stack_install(llama_stack_version):
 
 
 def is_install_from_source(llama_stack_version):
-    return len(llama_stack_version) == 40 or len(llama_stack_version) == 7
+    """Check if version string is a git commit SHA (no dots = SHA, has dots = version)."""
+    return "." not in llama_stack_version
 
 
 def check_llama_installed():
