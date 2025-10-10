@@ -10,11 +10,41 @@
 import shutil
 import subprocess
 import sys
+import os
 from pathlib import Path
 
+LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", "0.2.23")
 BASE_REQUIREMENTS = [
-    "llama-stack==0.2.23",
+    f"llama-stack=={LLAMA_STACK_VERSION}",
 ]
+
+source_install_command = """RUN tmp_build_dir=$(mktemp -d) && \\
+    git clone https://github.com/llamastack/llama-stack.git $tmp_build_dir && \\
+    cd $tmp_build_dir && \\
+    git checkout {llama_stack_version} && \\
+    pip install --no-cache -e ."""
+
+regular_install_command = (
+    """RUN pip install --no-cache llama-stack=={llama_stack_version}"""
+)
+
+
+def get_llama_stack_install(llama_stack_version):
+    # If the version is a commit SHA or a short commit SHA, we need to install from source
+    if is_install_from_source(llama_stack_version):
+        print(f"Installing llama-stack from source: {llama_stack_version}")
+        return source_install_command.format(
+            llama_stack_version=llama_stack_version
+        ).rstrip()
+    else:
+        print(f"Installing llama-stack from PyPI: {llama_stack_version}")
+        return regular_install_command.format(
+            llama_stack_version=llama_stack_version
+        ).rstrip()
+
+
+def is_install_from_source(llama_stack_version):
+    return len(llama_stack_version) == 40 or len(llama_stack_version) == 7
 
 
 def check_llama_installed():
@@ -130,7 +160,7 @@ def get_dependencies():
         sys.exit(1)
 
 
-def generate_containerfile(dependencies):
+def generate_containerfile(dependencies, llama_stack_install):
     """Generate Containerfile from template with dependencies."""
     template_path = Path("distribution/Containerfile.in")
     output_path = Path("distribution/Containerfile")
@@ -148,7 +178,8 @@ def generate_containerfile(dependencies):
 
     # Process template using string formatting
     containerfile_content = warning + template_content.format(
-        dependencies=dependencies.rstrip()
+        dependencies=dependencies.rstrip(),
+        llama_stack_install=llama_stack_install,
     )
 
     # Write output
@@ -162,14 +193,19 @@ def main():
     print("Checking llama installation...")
     check_llama_installed()
 
-    print("Checking llama-stack version...")
-    check_llama_stack_version()
+    # Do not perform version check if installing from source
+    if not is_install_from_source(LLAMA_STACK_VERSION):
+        print("Checking llama-stack version...")
+        check_llama_stack_version()
 
     print("Getting dependencies...")
     dependencies = get_dependencies()
 
+    print("Getting llama-stack install...")
+    llama_stack_install = get_llama_stack_install(LLAMA_STACK_VERSION)
+
     print("Generating Containerfile...")
-    generate_containerfile(dependencies)
+    generate_containerfile(dependencies, llama_stack_install)
 
     print("Done!")
 
