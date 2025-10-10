@@ -75,6 +75,7 @@ jobs:
           source .venv/bin/activate
           pip install --no-cache -e .
           # now remove the install line from the Containerfile
+          cd -
           python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
