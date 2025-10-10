@@ -67,8 +67,16 @@ jobs:
         env:
           LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
         run: |
-          python3 distribution/build.py
+          tmp_build_dir=$(mktemp -d)
+          git clone --filter=blob:none --no-checkout https://github.com/llamastack/llama-stack.git "$tmp_build_dir"
+          cd "$tmp_build_dir"
+          git checkout "$LLAMA_STACK_VERSION"
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --no-cache -e .
           # now remove the install line from the Containerfile
+          cd -
+          python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
       - name: Build image
