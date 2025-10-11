@@ -32,5 +32,14 @@ The build script will:
 
 The Containerfile is auto-generated from a template. To edit it, you can modify the template in `distribution/Containerfile.in` and run pre-commit again.
 
-> **Warning:**
-*NEVER* edit the generated `Containerfile` manually.
+> [!WARNING]
+> *NEVER* edit the generated `Containerfile` manually.
+
+## Run Instructions
+
+> [!TIP]
+> Ensure you include any env vars you might need for providers in the container env - you can read more about that [here](distribution/README.md).
+
+```bash
+podman run -p 8321:8321 quay.io/opendatahub/llama-stack:latest
+```
