@@ -26,6 +26,10 @@ on:
         required: true
         type: string
 
+  # do a nightly test of the `main` branch of llama-stack at 6AM UTC every morning
+  schedule:
+    - cron: '0 6 * * *'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -41,7 +45,7 @@ jobs:
       INFERENCE_MODEL: Qwen/Qwen3-0.6B
       EMBEDDING_MODEL: granite-embedding-125m
       VLLM_URL: http://localhost:8000/v1
-      LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha }}
+      LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
     strategy:
       matrix:
         platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
@@ -62,8 +66,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - name: Generate Containerfile to build an image from an arbitrary llama-stack commit (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Generate Containerfile to build an image from an arbitrary llama-stack commit (workflow_dispatch/schedule)
+        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         env:
           LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
         run: |
@@ -87,7 +91,7 @@ jobs:
           file: distribution/Containerfile
           platforms: ${{ matrix.platform }}
           push: false
-          tags: ${{ env.IMAGE_NAME }}:${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
+          tags: ${{ env.IMAGE_NAME }}:${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
           load: true  # needed to load for smoke test
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -156,7 +160,7 @@ jobs:
 
       - name: Log in to Quay.io
         id: login
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -165,7 +169,7 @@ jobs:
 
       - name: Publish image to Quay.io
         id: publish
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
@@ -177,7 +181,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Output custom build information
-        if: github.event_name == 'workflow_dispatch'
+        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         run: |
           echo "✅ Custom container image built successfully!"
           echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
