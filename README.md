@@ -41,5 +41,15 @@ The Containerfile is auto-generated from a template. To edit it, you can modify 
 > Ensure you include any env vars you might need for providers in the container env - you can read more about that [here](distribution/README.md).
 
 ```bash
-podman run -p 8321:8321 quay.io/opendatahub/llama-stack:latest
+podman run -p 8321:8321 quay.io/opendatahub/llama-stack:<tag>
 ```
+
+### What image tag should I use?
+
+Various tags are maintained for this image:
+
+- `latest` will always point to the latest image that has been built off of a merge to the `main` branch
+  - You can also pull an older image built off of `main` by using the SHA of the merge commit as the tag
+- `rhoai-v*-latest` will always point to the latest image that has been built off of a merge to the corresponding `rhoai-v*` branch
+
+You can see the source code that implements this build strategy [here](.github/workflows/redhat-distro-container.yml)
