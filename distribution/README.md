@@ -33,5 +33,6 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | tool_runtime | remote::brave-search | No | ✅ | N/A |
 | tool_runtime | remote::model-context-protocol | No | ✅ | N/A |
 | tool_runtime | remote::tavily-search | No | ✅ | N/A |
+| vector_io | inline::faiss | No | ❌ | Set the `ENABLE_FAISS` environment variable |
 | vector_io | inline::milvus | No | ✅ | N/A |
 | vector_io | remote::milvus | No | ❌ | Set the `MILVUS_ENDPOINT` environment variable |

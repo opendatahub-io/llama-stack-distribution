@@ -13,6 +13,7 @@ distribution_spec:
     vector_io:
     - provider_type: inline::milvus
     - provider_type: remote::milvus
+    - provider_type: inline::faiss
     safety:
     - provider_type: remote::trustyai_fms
       module: llama_stack_provider_trustyai_fms==0.2.3
