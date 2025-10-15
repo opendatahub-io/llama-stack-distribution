@@ -19,6 +19,17 @@ BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
 ]
 
+# Constrain packages we are patching to ensure reliable and repeatable build
+PINNED_DEPENDENCIES = [
+    "'kfp-kubernetes==2.14.6'",
+    "'pyarrow>=21.0.0'",
+    "'botocore==1.35.88'",
+    "'boto3==1.35.88'",
+    "'aiobotocore==2.16.1'",
+    "'ibm-cos-sdk-core==2.14.2'",
+    "'ibm-cos-sdk==2.14.2'",
+]
+
 source_install_command = """RUN tmp_build_dir=$(mktemp -d) && \\
     git clone --filter=blob:none --no-checkout https://github.com/llamastack/llama-stack.git $tmp_build_dir && \\
     cd $tmp_build_dir && \\
@@ -139,7 +150,14 @@ def get_dependencies():
 
         # Combine all dependencies in specific order
         all_deps = []
-        all_deps.extend(sorted(standard_deps))  # Regular pip installs first
+
+        # Add pinned dependencies FIRST to ensure version compatibility
+        if PINNED_DEPENDENCIES:
+            pinned_packages = " \\\n    ".join(PINNED_DEPENDENCIES)
+            pinned_cmd = f"RUN pip install --upgrade \\\n    {pinned_packages}"
+            all_deps.append(pinned_cmd)
+
+        all_deps.extend(sorted(standard_deps))  # Regular pip installs
         all_deps.extend(sorted(torch_deps))  # PyTorch specific installs
         all_deps.extend(sorted(no_deps))  # No-deps installs
         all_deps.extend(sorted(no_cache))  # No-cache installs

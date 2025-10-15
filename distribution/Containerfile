@@ -3,6 +3,14 @@
 FROM registry.access.redhat.com/ubi9/python-312@sha256:95ec8d3ee9f875da011639213fd254256c29bc58861ac0b11f290a291fa04435
 WORKDIR /opt/app-root
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
+RUN pip install --upgrade \
+    'kfp-kubernetes==2.14.6' \
+    'pyarrow>=21.0.0' \
+    'botocore==1.35.88' \
+    'boto3==1.35.88' \
+    'aiobotocore==2.16.1' \
+    'ibm-cos-sdk-core==2.14.2' \
+    'ibm-cos-sdk==2.14.2'
 RUN pip install \
     'datasets>=4.0.0' \
     'mcp>=1.8.1' \
@@ -41,9 +49,9 @@ RUN pip install \
 RUN pip install \
     llama_stack_provider_lmeval==0.3.0
 RUN pip install \
-    llama_stack_provider_ragas==0.3.2
+    llama_stack_provider_ragas==0.3.4
 RUN pip install \
-    llama_stack_provider_ragas[remote]==0.3.2
+    llama_stack_provider_ragas[remote]==0.3.4
 RUN pip install \
     llama_stack_provider_trustyai_fms==0.2.3
 RUN pip install 'torchao>=0.12.0' --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
