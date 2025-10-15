@@ -12,6 +12,7 @@ RUN pip install \
     autoevals \
     boto3 \
     chardet \
+    faiss-cpu \
     fastapi \
     fire \
     google-cloud-aiplatform \

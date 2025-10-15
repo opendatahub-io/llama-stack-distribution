@@ -82,6 +82,27 @@ providers:
         type: sqlite
         namespace: null
         db_path: /opt/app-root/src/.llama/distributions/rh/milvus_remote_registry.db
+  - provider_id: ${env.ENABLE_FAISS:+faiss}
+    provider_type: inline::faiss
+    config:
+      kvstore:
+        type: ${env.FAISS_KVSTORE_TYPE:=sqlite}
+        namespace: ${env.FAISS_KVSTORE_NAMESPACE:=}
+        # SQLite backend (type=sqlite)
+        db_path: ${env.FAISS_KVSTORE_DB_PATH:=}
+        # Redis, PostgreSQL, MongoDB backends (type=redis|postgres|mongodb)
+        host: ${env.FAISS_KVSTORE_HOST:=}
+        port: ${env.FAISS_KVSTORE_PORT:=}
+        # PostgreSQL, MongoDB backends (type=postgres|mongodb)
+        db: ${env.FAISS_KVSTORE_DB:=}
+        user: ${env.FAISS_KVSTORE_USER:=}
+        password: ${env.FAISS_KVSTORE_PASSWORD:=}
+        # PostgreSQL backend only (type=postgres)
+        ssl_mode: ${env.FAISS_KVSTORE_SSL_MODE:=}
+        ca_cert_path: ${env.FAISS_KVSTORE_CA_CERT_PATH:=}
+        table_name: ${env.FAISS_KVSTORE_TABLE_NAME:=}
+        # MongoDB backend only (type=mongodb)
+        collection_name: ${env.FAISS_KVSTORE_COLLECTION_NAME:=}
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
