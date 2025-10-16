@@ -5,7 +5,7 @@ set -euo pipefail
 # Configuration
 LLAMA_STACK_REPO="https://github.com/meta-llama/llama-stack.git"
 WORK_DIR="/tmp/llama-stack-integration-tests"
-INFERENCE_MODEL="${INFERENCE_MODEL:-meta-llama/Llama-3.2-1B-Instruct}"
+INFERENCE_MODEL="${INFERENCE_MODEL:-Qwen/Qwen3-0.6B}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -41,7 +41,8 @@ function run_integration_tests() {
     cd "$WORK_DIR"
 
     # Test to skip
-    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_inference_store_tool_calls or test_text_chat_completion_structured_output"
+    # TODO: re-enable the 2 chat_completion_non_streaming tests once they contain include max tokens (to prevent them from rambling)
+    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming"
 
     # Dynamically determine the path to run.yaml from the original script directory
     STACK_CONFIG_PATH="$SCRIPT_DIR/../distribution/run.yaml"
