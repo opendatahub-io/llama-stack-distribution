@@ -12,6 +12,7 @@ import subprocess
 import sys
 import os
 from pathlib import Path
+from packaging import version
 
 CURRENT_LLAMA_STACK_VERSION = "0.2.23"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
@@ -49,6 +50,26 @@ def get_llama_stack_install(llama_stack_version):
 def is_install_from_source(llama_stack_version):
     """Check if version string is a git commit SHA (no dots = SHA, has dots = version)."""
     return "." not in llama_stack_version
+
+
+def get_entrypoint(llama_stack_version):
+    """Determine the appropriate ENTRYPOINT based on llama-stack version."""
+    # If installing from source (commit SHA), use the new entrypoint
+    if is_install_from_source(llama_stack_version):
+        return 'ENTRYPOINT ["llama", "stack", "run"]'
+
+    # Parse current LLS version and compare with threshold LLS version
+    try:
+        current_version = version.parse(llama_stack_version)
+        threshold_version = version.parse("0.2.23")
+
+        if current_version < threshold_version:
+            return 'ENTRYPOINT ["python", "-m", "llama_stack.core.server.server"]'
+        else:
+            return 'ENTRYPOINT ["llama", "stack", "run"]'
+    except Exception as e:
+        print(f"Error: Could not parse version {llama_stack_version}: {e}")
+        sys.exit(1)
 
 
 def check_llama_installed():
@@ -171,7 +192,7 @@ def get_dependencies():
         sys.exit(1)
 
 
-def generate_containerfile(dependencies, llama_stack_install):
+def generate_containerfile(dependencies, llama_stack_install, entrypoint):
     """Generate Containerfile from template with dependencies."""
     template_path = Path("distribution/Containerfile.in")
     output_path = Path("distribution/Containerfile")
@@ -191,6 +212,7 @@ def generate_containerfile(dependencies, llama_stack_install):
     containerfile_content = warning + template_content.format(
         dependencies=dependencies.rstrip(),
         llama_stack_install_source=llama_stack_install if llama_stack_install else "",
+        entrypoint=entrypoint,
     )
 
     # Remove any blank lines that result from empty substitutions
@@ -221,8 +243,11 @@ def main():
     print("Getting llama-stack install...")
     llama_stack_install = get_llama_stack_install(LLAMA_STACK_VERSION)
 
+    print("Getting entrypoint...")
+    entrypoint = get_entrypoint(LLAMA_STACK_VERSION)
+
     print("Generating Containerfile...")
-    generate_containerfile(dependencies, llama_stack_install)
+    generate_containerfile(dependencies, llama_stack_install, entrypoint)
 
     print("Done!")
 
