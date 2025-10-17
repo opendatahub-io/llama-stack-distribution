@@ -6,7 +6,3 @@
 # These owners will own only CI and testing related infrastructure
 .github/ @Artemon-line @kami619
 tests/ @Artemon-line @kami619
-
-# These owners will be the default owners for everything in
-# the repo. Unless a later match takes precedence,
-* @cdoern @derekhiggins @Elbehery @leseb @nathan-weinberg @rhdedgar @rhuss @skamenan7 @VaishnaviHire
