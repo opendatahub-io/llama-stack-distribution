@@ -6,7 +6,9 @@ pull_request_rules:
     - "#approved-reviews-by>=2"
     - "#review-requested=0"
     - "#changes-requested-reviews-by=0"
-    - base=main
+    - or:
+      - base=main
+      - base~=^rhoai-v
     - label!=do-not-merge
     - label!=needs-rebase
     - check-success=pre-commit
