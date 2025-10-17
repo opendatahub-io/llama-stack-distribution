@@ -15,7 +15,7 @@ pull_request_rules:
     # Check redhat-distro-container job only when relevant paths are changed
     - or:
       - and:
-        - check-success=build-test-push
+        - check-success~=build-test-push
         - or:
           - files~=^\.github/actions/setup-vllm/action\.yml$
           - files~=^\.github/workflows/redhat-distro-container\.yml$
