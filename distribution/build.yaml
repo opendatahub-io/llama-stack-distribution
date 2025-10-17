@@ -23,9 +23,9 @@ distribution_spec:
     - provider_type: remote::trustyai_lmeval
       module: llama_stack_provider_lmeval==0.3.0
     - provider_type: inline::trustyai_ragas
-      module: llama_stack_provider_ragas==0.3.5
+      module: llama_stack_provider_ragas==0.3.6
     - provider_type: remote::trustyai_ragas
-      module: llama_stack_provider_ragas[remote]==0.3.5
+      module: llama_stack_provider_ragas[remote]==0.3.6
     datasetio:
     - provider_type: remote::huggingface
     - provider_type: inline::localfs
