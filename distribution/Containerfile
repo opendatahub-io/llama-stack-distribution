@@ -11,52 +11,7 @@ RUN pip install --upgrade \
     'aiobotocore==2.16.1' \
     'ibm-cos-sdk-core==2.14.2' \
     'ibm-cos-sdk==2.14.2'
-RUN pip install \
-    'datasets>=4.0.0' \
-    'mcp>=1.8.1' \
-    'pymilvus[milvus-lite]>=2.4.10' \
-    aiosqlite \
-    asyncpg \
-    autoevals \
-    boto3 \
-    chardet \
-    faiss-cpu \
-    fastapi \
-    fire \
-    google-cloud-aiplatform \
-    httpx \
-    ibm_watsonx_ai \
-    litellm \
-    matplotlib \
-    nltk \
-    numpy \
-    opentelemetry-exporter-otlp-proto-http \
-    opentelemetry-sdk \
-    pandas \
-    pillow \
-    psycopg2-binary \
-    pymongo \
-    pypdf \
-    redis \
-    requests \
-    scikit-learn \
-    scipy \
-    sentencepiece \
-    sqlalchemy[asyncio] \
-    tqdm \
-    transformers \
-    uvicorn
-RUN pip install \
-    llama_stack_provider_lmeval==0.3.1
-RUN pip install \
-    llama_stack_provider_ragas==0.4.1
-RUN pip install \
-    llama_stack_provider_ragas[remote]==0.4.1
-RUN pip install \
-    llama_stack_provider_trustyai_fms==0.2.3
-RUN pip install 'torchao>=0.12.0' --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
-RUN pip install --no-deps sentence-transformers
-RUN pip install --no-cache llama-stack==0.2.23
+RUN pip install --no-cache llama-stack==0.3.0
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
 ENTRYPOINT ["llama", "stack", "run", "/opt/app-root/run.yaml"]
