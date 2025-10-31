@@ -13,7 +13,7 @@ import sys
 import os
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "0.2.23"
+CURRENT_LLAMA_STACK_VERSION = "0.3.0rc3+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
@@ -30,11 +30,7 @@ PINNED_DEPENDENCIES = [
     "'ibm-cos-sdk==2.14.2'",
 ]
 
-source_install_command = """RUN tmp_build_dir=$(mktemp -d) && \\
-    git clone --filter=blob:none --no-checkout https://github.com/llamastack/llama-stack.git $tmp_build_dir && \\
-    cd $tmp_build_dir && \\
-    git checkout {llama_stack_version} && \\
-    pip install --no-cache -e ."""
+source_install_command = """RUN pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v{llama_stack_version}"""
 
 
 def get_llama_stack_install(llama_stack_version):
@@ -47,8 +43,8 @@ def get_llama_stack_install(llama_stack_version):
 
 
 def is_install_from_source(llama_stack_version):
-    """Check if version string is a git commit SHA (no dots = SHA, has dots = version)."""
-    return "." not in llama_stack_version
+    """Check if version string is a git commit SHA (no dots = SHA, has dots = version) or a custom version (contains +rhai)."""
+    return "." not in llama_stack_version or "+rhai" in llama_stack_version
 
 
 def check_llama_installed():

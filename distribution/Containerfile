@@ -20,12 +20,12 @@ RUN pip install \
     autoevals \
     boto3 \
     chardet \
+    einops \
     faiss-cpu \
     fastapi \
     fire \
     google-cloud-aiplatform \
     httpx \
-    ibm_watsonx_ai \
     litellm \
     matplotlib \
     nltk \
@@ -39,10 +39,12 @@ RUN pip install \
     pypdf \
     redis \
     requests \
+    safetensors \
     scikit-learn \
     scipy \
     sentencepiece \
     sqlalchemy[asyncio] \
+    tokenizers \
     tqdm \
     transformers \
     uvicorn
@@ -56,7 +58,11 @@ RUN pip install \
     llama_stack_provider_trustyai_fms==0.2.3
 RUN pip install 'torchao>=0.12.0' --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
 RUN pip install --no-deps sentence-transformers
-RUN pip install --no-cache llama-stack==0.2.23
+RUN pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.3.0rc3+rhai0
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
+#TODO: remove this once we have a stable version of llama-stack
+# LLS server version is not aligned with the client version, so we disable the version check
+# Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
+ENV LLAMA_STACK_DISABLE_VERSION_CHECK=true
 ENTRYPOINT ["llama", "stack", "run", "/opt/app-root/run.yaml"]
