@@ -21,15 +21,22 @@ def extract_llama_stack_version():
             content = file.read()
 
         # Look for llama-stack version in pip install commands
-        # Pattern matches: llama-stack==X.Y.Z
-        pattern = r"llama-stack==([0-9]+\.[0-9]+\.[0-9]+)"
+        # Pattern matches: llama-stack==X.Y.Z or llama-stack==X.Y.ZrcN+rhaiM
+        pattern = r"llama-stack==([0-9]+\.[0-9]+\.[0-9]+(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
         match = re.search(pattern, content)
 
         if match:
             return match.group(1)
-        else:
-            print("Error: Could not find llama-stack version in Containerfile")
-            exit(1)
+
+        # Look for git URL format: git+https://github.com/*/llama-stack.git@vVERSION or @VERSION
+        git_pattern = r"git\+https://github\.com/[^/]+/llama-stack\.git@v?([0-9]+\.[0-9]+\.[0-9]+(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
+        git_match = re.search(git_pattern, content)
+
+        if git_match:
+            return git_match.group(1)
+
+        print("Error: Could not find llama-stack version in Containerfile")
+        exit(1)
 
     except Exception as e:
         print(f"Error reading Containerfile: {e}")
@@ -170,7 +177,7 @@ def gen_distro_docs():
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with upstream Llama Stack version [{version}](https://github.com/llamastack/llama-stack/releases/tag/v{version})
+The image is currently shipping with the Open Data Hub version of Llama Stack version [{version}](https://github.com/opendatahub-io/llama-stack/releases/tag/v{version})
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
