@@ -53,3 +53,18 @@ Various tags are maintained for this image:
 - `rhoai-v*-latest` will always point to the latest image that has been built off of a merge to the corresponding `rhoai-v*` branch
 
 You can see the source code that implements this build strategy [here](.github/workflows/redhat-distro-container.yml)
+
+### Running with a custom run YAML
+
+The distribution image allows you to run a custom run YAML file within it. To do so, run the image in the following way. The "path" mentioned should be the path to your custom run YAML file.
+
+```bash
+podman run \
+  -p 8321:8321 \
+  -v <path_on_host>:<path_in_container> \
+  -e RUN_CONFIG_PATH=<path_in_container> \
+  quay.io/opendatahub/llama-stack:<tag>
+```
+
+> [!IMPORTANT]
+> The distribution image ships with various dependencies already pre-installed. There is *no* guarantee that your custom run YAML will necessarily work with the included dependencies.
