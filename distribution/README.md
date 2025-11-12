@@ -4,7 +4,7 @@
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with upstream Llama Stack version [0.2.23](https://github.com/llamastack/llama-stack/releases/tag/v0.2.23)
+The image is currently shipping with the Open Data Hub version of Llama Stack version [0.3.0rc3+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.3.0rc3+rhai0)
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
