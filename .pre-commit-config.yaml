@@ -67,3 +67,4 @@ repos:
         files: ^distribution/run\.yaml$
         additional_dependencies:
           - pyyaml==6.0.2
+          - git+https://github.com/opendatahub-io/llama-stack.git@v0.3.0rc3+rhai0
