@@ -3,9 +3,12 @@ WORKDIR /opt/app-root
 
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 {dependencies}
-RUN pip install --no-cache llama-stack==0.2.23
 {llama_stack_install_source}
 RUN mkdir -p ${{HOME}}/.llama ${{HOME}}/.cache
 COPY distribution/run.yaml ${{APP_ROOT}}/run.yaml
+#TODO: remove this once we have a stable version of llama-stack
+# LLS server version is not aligned with the client version, so we disable the version check
+# Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
+ENV LLAMA_STACK_DISABLE_VERSION_CHECK=true
 
 ENTRYPOINT ["llama", "stack", "run", "/opt/app-root/run.yaml"]
