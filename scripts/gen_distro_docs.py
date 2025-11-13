@@ -3,9 +3,18 @@
 import yaml
 import re
 from pathlib import Path
+from llama_stack.core.library_client import LlamaStackAsLibraryClient
 
 
 REPO_ROOT = Path(__file__).parent.parent
+
+
+def extract_llama_stack_routes(distro_path: str):
+    """Extract Llama Stack route information"""
+    client = LlamaStackAsLibraryClient("starter")
+    #client = LlamaStackAsLibraryClient(str(distro_path))
+    routes = client.routes.list()
+    return routes
 
 
 def extract_llama_stack_version():
@@ -87,11 +96,11 @@ def load_external_providers_info():
         exit(1)
 
 
-def gen_distro_table(providers_data):
+def gen_distro_table(providers_data, routes):
     # Start with table header
     table_lines = [
-        "| API | Provider | External? | Enabled by default? | How to enable |",
-        "|-----|----------|-----------|---------------------|---------------|",
+        "| Provider API | Provider | REST APIs | External? | Enabled by default? | How to enable |",
+        "|--------------|----------|-----------|-----------|---------------------|---------------|",
     ]
 
     # Load external provider information from build.yaml
@@ -107,6 +116,16 @@ def gen_distro_table(providers_data):
                 if isinstance(provider, dict) and "provider_type" in provider:
                     provider_type = provider["provider_type"]
                     provider_id = provider.get("provider_id", "")
+
+                    rest_api_pairs = []
+                    for route in routes:
+                        if (provider_type != "inline::meta-reference") and \
+                           (provider_type in route.provider_types) and \
+                           (len(route.route.split("/")) < 4 ):
+                            rest_api_pairs.append(
+                                route.route
+                            )
+                    rest_apis = "<br>".join(rest_api_pairs)
 
                     # Check if provider_id contains the conditional syntax ${<something>:+<something>}
                     # This regex matches the pattern ${...} containing :+
@@ -133,6 +152,7 @@ def gen_distro_table(providers_data):
                         (
                             api_name,
                             provider_type,
+                            rest_apis,
                             external_status,
                             enabled_by_default,
                             how_to_enable,
@@ -146,12 +166,13 @@ def gen_distro_table(providers_data):
     for (
         api_name,
         provider_type,
+        rest_apis,
         external_status,
         enabled_by_default,
         how_to_enable,
     ) in api_provider_pairs:
         table_lines.append(
-            f"| {api_name} | {provider_type} | {external_status} | {enabled_by_default} | {how_to_enable} |"
+            f"| {api_name} | {provider_type} | {rest_apis} | {external_status} | {enabled_by_default} | {how_to_enable} |"
         )
 
     return "\n".join(table_lines)
@@ -190,13 +211,15 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 
         # Extract providers section
         providers = run_yaml_data.get("providers", {})
-
         if not providers:
             print("Error: No providers found in run.yaml")
             return 1
 
+        # Extract routes info
+        routes = extract_llama_stack_routes(str(run_yaml_path))
+
         # Generate the Markdown table
-        table_content = gen_distro_table(providers)
+        table_content = gen_distro_table(providers, routes)
 
         # Write to README.md
         with open(readme_path, "w") as readme_file:
