@@ -33,8 +33,6 @@ distribution_spec:
     - provider_type: inline::basic
     - provider_type: inline::llm-as-judge
     - provider_type: inline::braintrust
-    telemetry:
-    - provider_type: inline::meta-reference
     tool_runtime:
     - provider_type: remote::brave-search
     - provider_type: remote::tavily-search

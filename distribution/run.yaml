@@ -7,7 +7,6 @@ apis:
 - inference
 - safety
 - scoring
-- telemetry
 - tool_runtime
 - vector_io
 - files
@@ -64,10 +63,15 @@ providers:
     provider_type: inline::milvus
     config:
       db_path: /opt/app-root/src/.llama/distributions/rh/milvus.db
-      kvstore:
-        type: sqlite
-        namespace: null
-        db_path: /opt/app-root/src/.llama/distributions/rh/milvus_registry.db
+      persistence:
+        backend: kv_milvus_inline
+        namespace: vector_io::milvus
+  - provider_id: ${env.ENABLE_FAISS:+faiss}
+    provider_type: inline::faiss
+    config:
+      persistence:
+        backend: kv_faiss
+        namespace: vector_io::faiss
   - provider_id: ${env.MILVUS_ENDPOINT:+milvus-remote}
     provider_type: remote::milvus
     config:
@@ -78,35 +82,13 @@ providers:
       ca_pem_path: ${env.MILVUS_CA_PEM_PATH:=}
       client_pem_path: ${env.MILVUS_CLIENT_PEM_PATH:=}
       client_key_path: ${env.MILVUS_CLIENT_KEY_PATH:=}
-      kvstore:
-        type: sqlite
-        namespace: null
-        db_path: /opt/app-root/src/.llama/distributions/rh/milvus_remote_registry.db
-  - provider_id: ${env.ENABLE_FAISS:+faiss}
-    provider_type: inline::faiss
-    config:
-      kvstore:
-        type: ${env.FAISS_KVSTORE_TYPE:=sqlite}
-        namespace: ${env.FAISS_KVSTORE_NAMESPACE:=}
-        # SQLite backend (type=sqlite)
-        db_path: ${env.FAISS_KVSTORE_DB_PATH:=}
-        # Redis, PostgreSQL, MongoDB backends (type=redis|postgres|mongodb)
-        host: ${env.FAISS_KVSTORE_HOST:=}
-        port: ${env.FAISS_KVSTORE_PORT:=}
-        # PostgreSQL, MongoDB backends (type=postgres|mongodb)
-        db: ${env.FAISS_KVSTORE_DB:=}
-        user: ${env.FAISS_KVSTORE_USER:=}
-        password: ${env.FAISS_KVSTORE_PASSWORD:=}
-        # PostgreSQL backend only (type=postgres)
-        ssl_mode: ${env.FAISS_KVSTORE_SSL_MODE:=}
-        ca_cert_path: ${env.FAISS_KVSTORE_CA_CERT_PATH:=}
-        table_name: ${env.FAISS_KVSTORE_TABLE_NAME:=}
-        # MongoDB backend only (type=mongodb)
-        collection_name: ${env.FAISS_KVSTORE_COLLECTION_NAME:=}
+      persistence:
+        backend: kv_milvus_remote
+        namespace: vector_io::milvus_remote
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
-      module: llama_stack_provider_trustyai_fms
+      module: llama_stack_provider_trustyai_fms==0.2.2
       config:
         orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
         ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
@@ -115,20 +97,22 @@ providers:
   - provider_id: meta-reference
     provider_type: inline::meta-reference
     config:
-      persistence_store:
-        type: sqlite
-        namespace: null
-        db_path: /opt/app-root/src/.llama/distributions/rh/agents_store.db
-      responses_store:
-        type: sqlite
-        db_path: /opt/app-root/src/.llama/distributions/rh/responses_store.db
+      persistence:
+        agent_state:
+          backend: kv_agents
+          namespace: agents::meta_reference
+        responses:
+          backend: sql_agents
+          table_name: agents_responses
+          max_write_queue_size: 10000
+          num_writers: 4
   eval:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
-    module: llama_stack_provider_lmeval
+    module: llama_stack_provider_lmeval==0.2.4
     config:
         use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
-        base_url: ${env.VLLM_URL:=}
+        base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
   - provider_id: ${env.EMBEDDING_MODEL:+trustyai_ragas_inline}
     provider_type: inline::trustyai_ragas
     module: llama_stack_provider_ragas.inline
@@ -151,17 +135,15 @@ providers:
   - provider_id: huggingface
     provider_type: remote::huggingface
     config:
-      kvstore:
-        type: sqlite
-        namespace: null
-        db_path: /opt/app-root/src/.llama/distributions/rh/huggingface_datasetio.db
+      persistence:
+        backend: kv_datasetio_huggingface
+        namespace: datasetio::huggingface
   - provider_id: localfs
     provider_type: inline::localfs
     config:
-      kvstore:
-        type: sqlite
-        namespace: null
-        db_path: /opt/app-root/src/.llama/distributions/rh/localfs_datasetio.db
+      persistence:
+        backend: kv_datasetio_localfs
+        namespace: datasetio::localfs
   scoring:
   - provider_id: basic
     provider_type: inline::basic
@@ -173,13 +155,6 @@ providers:
     provider_type: inline::braintrust
     config:
       openai_api_key: ${env.OPENAI_API_KEY:=}
-  telemetry:
-  - provider_id: meta-reference
-    provider_type: inline::meta-reference
-    config:
-      service_name: "${env.OTEL_SERVICE_NAME:=\u200B}"
-      sinks: ${env.TELEMETRY_SINKS:=console}
-      otel_exporter_otlp_endpoint: ${env.OTEL_EXPORTER_OTLP_ENDPOINT:=}
   tool_runtime:
   - provider_id: brave-search
     provider_type: remote::brave-search
@@ -203,18 +178,62 @@ providers:
     config:
       storage_dir: /opt/app-root/src/.llama/distributions/rh/files
       metadata_store:
-        type: sqlite
-        db_path: /opt/app-root/src/.llama/distributions/rh/files_metadata.db
-metadata_store:
-  type: sqlite
-  db_path: /opt/app-root/src/.llama/distributions/rh/registry.db
-inference_store:
-  type: sqlite
-  db_path: /opt/app-root/src/.llama/distributions/rh/inference_store.db
+        backend: sql_files
+        table_name: files_metadata
+storage:
+  backends:
+    kv_default:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/kvstore.db
+    kv_agents:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/agents_store.db
+    kv_faiss:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/faiss.db
+    kv_milvus_inline:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/milvus_inline_registry.db
+    kv_milvus_remote:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/milvus_remote_registry.db
+    kv_datasetio_huggingface:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/huggingface_datasetio.db
+    kv_datasetio_localfs:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/localfs_datasetio.db
+    sql_inference:
+      type: sql_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/inference_store.db
+    sql_agents:
+      type: sql_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/responses_store.db
+    sql_files:
+      type: sql_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/files_metadata.db
+    sql_default:
+      type: sql_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/sql_store.db
+  stores:
+    metadata:
+      backend: kv_default
+      namespace: registry
+    inference:
+      backend: sql_inference
+      table_name: inference_store
+      max_write_queue_size: 10000
+      num_writers: 4
+    conversations:
+      table_name: openai_conversations
+      backend: sql_default
+    prompts:
+      namespace: prompts
+      backend: kv_default
 models:
 - metadata: {}
-  model_id: ${env.INFERENCE_MODEL:=dummy}
-  provider_id: ${env.VLLM_URL:+vllm-inference}
+  model_id: ${env.INFERENCE_MODEL}
+  provider_id: vllm-inference
   model_type: llm
 - metadata:
     embedding_dimension: 768
@@ -232,5 +251,7 @@ tool_groups:
   provider_id: tavily-search
 - toolgroup_id: builtin::rag
   provider_id: rag-runtime
+telemetry:
+  enabled: true
 server:
   port: 8321
