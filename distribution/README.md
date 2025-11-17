@@ -4,7 +4,7 @@
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with the Open Data Hub version of Llama Stack version [0.3.0rc3+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.3.0rc3+rhai0)
+The image is currently shipping with the Open Data Hub version of Llama Stack version [a73f4cc](https://github.com/opendatahub-io/llama-stack/commit/a73f4cc6127ff7c1d42543c2885f4a5d9a5460d1)
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
@@ -28,7 +28,6 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | scoring | inline::basic | No | ✅ | N/A |
 | scoring | inline::braintrust | No | ✅ | N/A |
 | scoring | inline::llm-as-judge | No | ✅ | N/A |
-| telemetry | inline::meta-reference | No | ✅ | N/A |
 | tool_runtime | inline::rag-runtime | No | ✅ | N/A |
 | tool_runtime | remote::brave-search | No | ✅ | N/A |
 | tool_runtime | remote::model-context-protocol | No | ✅ | N/A |
