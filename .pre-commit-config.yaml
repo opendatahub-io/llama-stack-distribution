@@ -56,7 +56,7 @@ repos:
         always_run: true
         files: ^distribution/.*$
         additional_dependencies:
-          - git+https://github.com/opendatahub-io/llama-stack.git@v0.3.0rc3+rhai0
+          - uv>=0.9.0
 
       - id: doc-gen
         name: Distribution Documentation
