@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - rhoai-v*
+      - konflux-poc*
     types:
       - opened
       - synchronize
