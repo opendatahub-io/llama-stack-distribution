@@ -211,4 +211,3 @@ Recordings follow the upstream structure: `tests/integration/recordings/`
 ### Including Recordings in Your PR
 
 After running the script, recordings are automatically updated in `tests/integration/recordings/`. You can review, commit, and push the changes as needed.
-

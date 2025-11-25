@@ -6,6 +6,8 @@
 set -euo pipefail
 
 # Configuration
+# REGISTRY is not used directly but kept for consistency with other scripts
+# shellcheck disable=SC2034
 REGISTRY="quay.io"
 IMAGE_BASE="quay.io/opendatahub/llama-stack"
 RECORDINGS_DIR="tests/integration/recordings"
@@ -87,7 +89,7 @@ eval "podman run -d --net=host -p 8321:8321 $SECRET_ARGS $ENV_ARGS --name $CONTA
 echo "Waiting for server..."
 for i in {1..60}; do
   curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null | grep -q '"status":"OK"' && break
-  [ $i -eq 60 ] && { podman logs "$CONTAINER_NAME"; podman rm -f "$CONTAINER_NAME"; exit 1; }
+  [ "$i" -eq 60 ] && { podman logs "$CONTAINER_NAME"; podman rm -f "$CONTAINER_NAME"; exit 1; }
   sleep 1
 done
 
@@ -137,7 +139,7 @@ echo "Updating recordings in $RECORDINGS_DIR..."
 mkdir -p "$RECORDINGS_DIR"
 echo "$PROVIDER_FILES" | while IFS= read -r file; do
   [ -n "$file" ] && [ -f "$file" ] && {
-    relative_path=$(echo "$file" | sed "s|^$SOURCE_RECORDINGS/||")
+    relative_path="${file#"$SOURCE_RECORDINGS"/}"
     mkdir -p "$RECORDINGS_DIR/$(dirname "$relative_path")"
     cp "$file" "$RECORDINGS_DIR/$relative_path"
   }
@@ -146,4 +148,3 @@ done
 # Cleanup
 podman rm -f "$CONTAINER_NAME" >/dev/null
 echo "Recordings updated in $RECORDINGS_DIR"
-

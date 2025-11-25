@@ -78,12 +78,12 @@ function run_integration_tests() {
         # Use vllm-inference provider (default)
         TEXT_MODEL="vllm-inference/$INFERENCE_MODEL"
         echo "Using vllm-inference provider with model: $TEXT_MODEL"
-    fi        
+    fi
     # TODO: remove this once we have a stable version of llama-stack client
     # Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
     uv run --with llama-stack-client==0.3.0 pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
-        --text-model=$TEXT_MODEL \
+        --text-model="$TEXT_MODEL" \
         --embedding-model=granite-embedding-125m \
         -k "not ($SKIP_TESTS)"
 }

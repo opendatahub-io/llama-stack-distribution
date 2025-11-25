@@ -64,6 +64,54 @@ podman ps
 
 **Note**: The helper script (`scripts/test-with-act.sh`) will automatically detect and use Podman if available, falling back to Docker if needed. GitHub Actions workflows use Docker, but Podman is preferred for local testing.
 
+### 1.6. Setup Podman for Pre-commit Hooks
+
+The shellcheck pre-commit hook requires Docker. To use Podman instead:
+
+**Option 1: Install podman-docker (Recommended - Cleanest Solution)**
+
+```bash
+# Install podman-docker package (provides docker command that uses Podman)
+sudo dnf install podman-docker  # Fedora/RHEL
+# or
+sudo apt install podman-docker  # Debian/Ubuntu
+
+# Enable and start Podman socket
+systemctl --user enable --now podman.socket
+
+# Verify it works
+docker --version  # Should show podman version
+```
+
+**Option 2: Use Podman Socket with DOCKER_HOST**
+
+```bash
+# Enable Podman socket service
+systemctl --user enable --now podman.socket
+
+# Set DOCKER_HOST to use Podman socket
+export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+
+# Add to your ~/.bashrc or ~/.zshrc to make it permanent
+echo 'export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock' >> ~/.bashrc
+```
+
+**Note**: Option 1 is cleaner as it provides a proper `docker` command without wrappers or environment variables.
+
+### 1.7. Fix SELinux Context (Fedora/RHEL Only)
+
+If you're on Fedora/RHEL with SELinux enabled and get permission denied errors from shellcheck:
+
+```bash
+# Run the fix script (requires sudo)
+./scripts/fix-selinux-context.sh
+
+# Or manually fix the context
+sudo chcon -R -t user_home_t scripts/ tests/ distribution/entrypoint.sh
+```
+
+This fixes the SELinux context so containers can read the files.
+
 ### 2. Set Up Secrets
 
 ```bash
