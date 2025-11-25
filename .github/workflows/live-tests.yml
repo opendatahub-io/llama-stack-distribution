@@ -1,0 +1,198 @@
+name: Live CI tests
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Every Monday at 2 AM UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: quay.io
+  IMAGE_NAME: quay.io/opendatahub/llama-stack
+  LLAMA_STACK_TEST_INFERENCE_MODE: live
+
+jobs:
+  live-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.VERTEX_AI_PROJECT }}" ] || [ -z "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]; then
+            echo "Error: VERTEX_AI_PROJECT and GCP_WORKLOAD_IDENTITY_PROVIDER secrets must be set"
+            exit 1
+          fi
+
+      - name: Set Vertex AI environment variables
+        run: |
+          echo "VERTEX_AI_PROJECT=${{ secrets.VERTEX_AI_PROJECT }}" >> $GITHUB_ENV
+          echo "VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "PROVIDER_MODEL=vertexai/gemini-1.5-flash" >> $GITHUB_ENV
+          echo "CONTAINER_NAME=llama-stack-vertex" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure gcloud
+        run: |
+          gcloud config set project ${{ env.VERTEX_AI_PROJECT }}
+          gcloud config set compute/region ${{ env.VERTEX_AI_LOCATION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@5a7eac68fb9809dea845d802897dc5c723910fa3 # v7.1.3
+        with:
+          python-version: 3.12
+          version: 0.7.6
+
+      - name: Build image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: distribution/Containerfile
+          platforms: linux/amd64
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:vertex-test-${{ github.sha }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start Llama Stack container
+        run: |
+          docker run -d --net=host -p 8321:8321 \
+            -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
+            -e VERTEX_AI_PROJECT="${{ env.VERTEX_AI_PROJECT }}" \
+            -e VERTEX_AI_LOCATION="${{ env.VERTEX_AI_LOCATION }}" \
+            -e GOOGLE_APPLICATION_CREDENTIALS="" \
+            --name ${{ env.CONTAINER_NAME }} \
+            "${{ env.IMAGE_NAME }}:vertex-test-${{ github.sha }}"
+          
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null | grep -q '"status":"OK"' && break
+            [ $i -eq 60 ] && { docker logs ${{ env.CONTAINER_NAME }}; docker rm -f ${{ env.CONTAINER_NAME }}; exit 1; }
+            sleep 1
+          done
+
+      - name: Run integration tests
+        id: run-tests
+        env:
+          VERTEX_AI_PROJECT: ${{ env.VERTEX_AI_PROJECT }}
+          VERTEX_AI_LOCATION: ${{ env.VERTEX_AI_LOCATION }}
+          PROVIDER_MODEL: ${{ env.PROVIDER_MODEL }}
+          LLAMA_STACK_TEST_INFERENCE_MODE: ${{ env.LLAMA_STACK_TEST_INFERENCE_MODE }}
+        run: |
+          export VERTEX_AI_PROJECT VERTEX_AI_LOCATION PROVIDER_MODEL LLAMA_STACK_TEST_INFERENCE_MODE
+          ./tests/run_integration_tests.sh
+          echo "tests_passed=true" >> $GITHUB_OUTPUT
+
+      - name: Extract recordings
+        if: steps.run-tests.outcome == 'success'
+        run: |
+          WORK_DIR="/tmp/llama-stack-integration-tests"
+          RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
+          
+          [ ! -d "$RECORDINGS_DIR" ] && exit 0
+          
+          # Find Vertex AI recordings
+          PROVIDER_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null || true)
+          [ -z "$PROVIDER_RECORDINGS" ] && exit 0
+          
+          # Copy to repository
+          REPO_RECORDINGS_DIR="tests/integration/recordings"
+          mkdir -p "$REPO_RECORDINGS_DIR"
+          echo "$PROVIDER_RECORDINGS" | while IFS= read -r recording; do
+            [ -n "$recording" ] && [ -f "$recording" ] && {
+              relative_path=$(echo "$recording" | sed "s|^$RECORDINGS_DIR/||")
+              mkdir -p "$REPO_RECORDINGS_DIR/$(dirname "$relative_path")"
+              cp "$recording" "$REPO_RECORDINGS_DIR/$relative_path"
+            }
+          done
+          
+          echo "Recordings extracted for vertex"
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f ${{ env.CONTAINER_NAME }} || true
+
+  create-pr:
+    needs: live-tests
+    if: always() && needs.live-tests.outcome == 'success' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Extract all recordings and create PR
+        env:
+          LLAMA_STACK_REPO: https://github.com/llamastack/llama-stack.git
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_RECORDINGS_DIR="tests/integration/recordings"
+          [ ! -d "$REPO_RECORDINGS_DIR" ] && exit 0
+          
+          # Check if there are any recordings
+          [ -z "$(find "$REPO_RECORDINGS_DIR" -type f)" ] && exit 0
+          
+          # Clone llama-stack and update recordings
+          LLAMA_STACK_CLONE_DIR=$(mktemp -d)
+          git clone "https://x-access-token:$GITHUB_TOKEN@github.com/llamastack/llama-stack.git" "$LLAMA_STACK_CLONE_DIR"
+          cd "$LLAMA_STACK_CLONE_DIR"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          BRANCH_NAME="update-recordings-$(date +%Y%m%d-%H%M%S)-${{ github.run_id }}"
+          git checkout -b "$BRANCH_NAME"
+          
+          TARGET_RECORDINGS_DIR="$LLAMA_STACK_CLONE_DIR/tests/integration/recordings"
+          mkdir -p "$TARGET_RECORDINGS_DIR"
+          
+          # Copy all recordings
+          find "$REPO_RECORDINGS_DIR" -type f | while IFS= read -r recording; do
+            relative_path=$(echo "$recording" | sed "s|^$REPO_RECORDINGS_DIR/||")
+            mkdir -p "$(dirname "$TARGET_RECORDINGS_DIR/$relative_path")"
+            cp "$recording" "$TARGET_RECORDINGS_DIR/$relative_path"
+          done
+          
+          git diff --quiet && exit 0
+          
+          git add tests/integration/recordings/
+          git commit -m "chore: update test recordings from live tests
+
+          Updated recordings from successful live CI tests run on $(date -u +%Y-%m-%d).
+          Generated by: ${{ github.workflow }} workflow
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          git push origin "$BRANCH_NAME" || exit 1
+          
+          gh auth setup-git
+          gh pr create \
+            --repo llamastack/llama-stack \
+            --title "chore: update test recordings" \
+            --body "This PR updates test recordings from successful live CI tests.
+
+          **Source**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          **Date**: $(date -u +%Y-%m-%d)
+
+          Auto-generated by the live CI tests workflow." \
+            --head "$BRANCH_NAME" \
+            --base main || true
+
