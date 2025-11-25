@@ -64,11 +64,26 @@ function run_integration_tests() {
         exit 1
     fi
 
+    # Determine provider and model based on environment variables
+    if [ -n "${PROVIDER_MODEL:-}" ]; then
+        # Use provider model from environment (set by live test scripts)
+        TEXT_MODEL="$PROVIDER_MODEL"
+        echo "Using provider model: $TEXT_MODEL"
+    elif [ -n "${VERTEX_AI_PROJECT:-}" ]; then
+        # Use Vertex AI provider
+        TEXT_MODEL="vertexai/gemini-2.0-flash"
+        echo "Using Vertex AI provider with project: $VERTEX_AI_PROJECT"
+        echo "Using model: $TEXT_MODEL"
+    else
+        # Use vllm-inference provider (default)
+        TEXT_MODEL="vllm-inference/$INFERENCE_MODEL"
+        echo "Using vllm-inference provider with model: $TEXT_MODEL"
+    fi        
     # TODO: remove this once we have a stable version of llama-stack client
     # Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
     uv run --with llama-stack-client==0.3.0 pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
-        --text-model=vllm-inference/"$INFERENCE_MODEL" \
+        --text-model=$TEXT_MODEL \
         --embedding-model=granite-embedding-125m \
         -k "not ($SKIP_TESTS)"
 }
@@ -80,6 +95,8 @@ function main() {
     echo "  LLAMA_STACK_REPO: $LLAMA_STACK_REPO"
     echo "  WORK_DIR: $WORK_DIR"
     echo "  INFERENCE_MODEL: $INFERENCE_MODEL"
+    echo "  VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-not set}"
+    echo "  VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-not set}"
 
     clone_llama_stack
     run_integration_tests

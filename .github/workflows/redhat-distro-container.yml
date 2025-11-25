@@ -107,11 +107,66 @@ jobs:
         shell: bash
         run: ./tests/smoke.sh
 
-      - name: Integration tests
+      - name: Check for Vertex AI recordings
+        if: github.event_name != 'workflow_dispatch'
+        id: check-vertex-recordings
+        run: |
+          WORK_DIR="/tmp/llama-stack-integration-tests"
+          # Clone llama-stack to check for recordings
+          if [ ! -d "$WORK_DIR" ]; then
+            # Get llama-stack version from Containerfile
+            CONTAINERFILE="distribution/Containerfile"
+            GIT_URL=$(grep -o 'git+https://github\.com/[^/]\+/llama-stack\.git@v\?[0-9.+a-z]\+' "$CONTAINERFILE")
+            LLAMA_STACK_REPO=${GIT_URL#git+}
+            LLAMA_STACK_REPO=${LLAMA_STACK_REPO%%@*}
+            LLAMA_STACK_VERSION=${GIT_URL##*@}
+            LLAMA_STACK_VERSION=${LLAMA_STACK_VERSION#v}
+
+            git clone "$LLAMA_STACK_REPO" "$WORK_DIR"
+            cd "$WORK_DIR"
+            git fetch origin
+            git checkout "v$LLAMA_STACK_VERSION" || git checkout "$LLAMA_STACK_VERSION"
+          fi
+
+          # Check for recordings in tests/integration/recordings (upstream structure)
+          RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
+          if [ -d "$RECORDINGS_DIR" ]; then
+            # Check for Vertex AI recordings (files with vertex in name or path)
+            VERTEX_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null | head -1)
+            if [ -n "$VERTEX_RECORDINGS" ]; then
+              echo "vertex_recordings_exist=true" >> $GITHUB_OUTPUT
+              echo "Found Vertex AI recordings in $RECORDINGS_DIR, will run Vertex tests"
+            else
+              echo "vertex_recordings_exist=false" >> $GITHUB_OUTPUT
+              echo "No Vertex AI recordings found in $RECORDINGS_DIR"
+            fi
+          else
+            echo "vertex_recordings_exist=false" >> $GITHUB_OUTPUT
+            echo "Recordings directory not found at $RECORDINGS_DIR"
+          fi
+
+      - name: Integration tests (vLLM)
         if: github.event_name != 'workflow_dispatch'
         id: integration-tests
         shell: bash
         run: ./tests/run_integration_tests.sh
+
+      - name: Integration tests (Vertex AI)
+        if: github.event_name != 'workflow_dispatch' && steps.check-vertex-recordings.outputs.vertex_recordings_exist == 'true'
+        id: integration-tests-vertex
+        env:
+          # Use dummy values when using recordings - actual API calls won't be made
+          VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT || 'dummy-project' }}
+          VERTEX_AI_LOCATION: ${{ secrets.VERTEX_AI_LOCATION || 'us-central1' }}
+          # Don't set LLAMA_STACK_TEST_INFERENCE_MODE - this will use recordings
+        shell: bash
+        run: |
+          export VERTEX_AI_PROJECT="${VERTEX_AI_PROJECT:-dummy-project}"
+          export VERTEX_AI_LOCATION="${VERTEX_AI_LOCATION:-us-central1}"
+          # Explicitly unset live mode to ensure recordings are used
+          unset LLAMA_STACK_TEST_INFERENCE_MODE
+          echo "Running Vertex AI tests with recordings (no live API calls)"
+          ./tests/run_integration_tests.sh
 
       - name: Gather logs and debugging information
         if: always()

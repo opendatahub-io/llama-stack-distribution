@@ -1,0 +1,16 @@
+{
+  "pull_request": {
+    "number": 1,
+    "head": {
+      "sha": "abc123def456",
+      "ref": "test-branch"
+    },
+    "base": {
+      "ref": "main"
+    }
+  },
+  "repository": {
+    "full_name": "opendatahub/llama-stack-distribution"
+  }
+}
+
