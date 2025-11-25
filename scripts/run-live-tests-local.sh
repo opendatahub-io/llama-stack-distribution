@@ -29,6 +29,7 @@ if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
   CONTAINER_NAME="llama-stack-vertex"
   PROVIDER_MODEL="vertexai/gemini-2.0-flash"
   VERTEX_AI_LOCATION="${VERTEX_AI_LOCATION:-us-central1}"
+  echo "Using Vertex AI provider with model: $PROVIDER_MODEL"
 else
   # Default to vllm provider
   PROVIDER="vllm"

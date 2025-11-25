@@ -51,7 +51,6 @@ podman rm -f vllm
 ```bash
 # Set GCP project and authenticate
 export VERTEX_AI_PROJECT=your-gcp-project-id
-export VERTEX_AI_LOCATION=us-central1  # Optional
 gcloud auth application-default login
 
 # Run the script
