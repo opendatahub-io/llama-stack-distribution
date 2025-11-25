@@ -58,17 +58,18 @@ podman build -f distribution/Containerfile -t "$IMAGE_NAME" . >/dev/null
 # Prepare container environment and secrets
 case "$PROVIDER" in
   vertex)
+    # Verify GCP authentication
+    if [ ! -f "$HOME/.config/gcloud/application_default_credentials.json" ]; then
+      echo "Error: GCP credentials file not found at $HOME/.config/gcloud/application_default_credentials.json"
+      echo "Please run: gcloud auth application-default login"
+      exit 1
+    fi
+    
     ENV_ARGS="-e VERTEX_AI_PROJECT=\"$VERTEX_AI_PROJECT\" -e VERTEX_AI_LOCATION=\"$VERTEX_AI_LOCATION\" -e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-credentials -e GOOGLE_CLOUD_PROJECT=\"$VERTEX_AI_PROJECT\""
     # Check if podman secret exists, create if not
     if ! podman secret exists gcp-credentials 2>/dev/null; then
-      if [ -f "$HOME/.config/gcloud/application_default_credentials.json" ]; then
-        echo "Creating podman secret 'gcp-credentials'..."
-        podman secret create gcp-credentials "$HOME/.config/gcloud/application_default_credentials.json" >/dev/null
-      else
-        echo "Error: GCP credentials file not found at $HOME/.config/gcloud/application_default_credentials.json"
-        echo "Please run: gcloud auth application-default login"
-        exit 1
-      fi
+      echo "Creating podman secret 'gcp-credentials'..."
+      podman secret create gcp-credentials "$HOME/.config/gcloud/application_default_credentials.json" >/dev/null
     fi
     SECRET_ARGS="--secret gcp-credentials"
     ;;
