@@ -86,16 +86,11 @@ jobs:
           VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
           VERTEX_AI_LOCATION: us-central1
           PROVIDER_MODEL: vertexai/gemini-1.5-flash
-          LLAMA_STACK_TEST_INFERENCE_MODE: ${{ env.LLAMA_STACK_TEST_INFERENCE_MODE }}
         shell: bash
         run: |
-          export VERTEX_AI_PROJECT VERTEX_AI_LOCATION PROVIDER_MODEL LLAMA_STACK_TEST_INFERENCE_MODE
           ./tests/run_integration_tests.sh
-          echo "tests_passed=true" >> $GITHUB_OUTPUT
 
-      - name: Extract recordings
-        if: steps.run-tests.outcome == 'success'
-        run: |
+          # Extract recordings
           WORK_DIR="/tmp/llama-stack-integration-tests"
           RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
 
@@ -115,9 +110,6 @@ jobs:
               cp "$recording" "$REPO_RECORDINGS_DIR/$relative_path"
             }
           done
-
-          echo "Recordings extracted for vertex"
-
       - name: Cleanup
         if: always()
         run: docker rm -f llama-stack-vertex || true

@@ -40,7 +40,47 @@ env:
   IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
 
 jobs:
+  check-vertex-recordings:
+    name: Check for Vertex AI recordings
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+
+      - name: Detect Vertex AI recordings
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK_DIR="/tmp/llama-stack-integration-tests"
+          source scripts/extract-llama-stack-info.sh
+
+          if [ ! -d "$WORK_DIR" ]; then
+            git clone "$LLAMA_STACK_REPO" "$WORK_DIR"
+          fi
+
+          cd "$WORK_DIR"
+          git fetch origin
+          git checkout "v$LLAMA_STACK_VERSION" || git checkout "$LLAMA_STACK_VERSION"
+
+          RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
+          if [ ! -d "$RECORDINGS_DIR" ]; then
+            echo "Recordings directory not found at $RECORDINGS_DIR"
+            exit 1
+          fi
+
+          VERTEX_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null | head -1)
+          if [ -z "$VERTEX_RECORDINGS" ]; then
+            echo "No Vertex AI recordings found in $RECORDINGS_DIR"
+            exit 1
+          fi
+
+          echo "Found Vertex AI recordings in $RECORDINGS_DIR"
+
   build-test-push:
+    needs:
+      - check-vertex-recordings
     runs-on: ubuntu-latest
     env:
       INFERENCE_MODEL: Qwen/Qwen3-0.6B
@@ -108,40 +148,6 @@ jobs:
         shell: bash
         run: ./tests/smoke.sh
 
-      - name: Check for Vertex AI recordings
-        if: github.event_name != 'workflow_dispatch'
-        id: check-vertex-recordings
-        shell: bash
-        run: |
-          WORK_DIR="/tmp/llama-stack-integration-tests"
-          # Clone llama-stack to check for recordings
-          if [ ! -d "$WORK_DIR" ]; then
-            # Get llama-stack repo and version from Containerfile
-            source scripts/extract-llama-stack-info.sh
-
-            git clone "$LLAMA_STACK_REPO" "$WORK_DIR"
-            cd "$WORK_DIR"
-            git fetch origin
-            git checkout "v$LLAMA_STACK_VERSION" || git checkout "$LLAMA_STACK_VERSION"
-          fi
-
-          # Check for recordings in tests/integration/recordings (upstream structure)
-          RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
-          if [ -d "$RECORDINGS_DIR" ]; then
-            # Check for Vertex AI recordings (files with vertex in name or path)
-            VERTEX_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null | head -1)
-            if [ -n "$VERTEX_RECORDINGS" ]; then
-              echo "vertex_recordings_exist=true" >> $GITHUB_OUTPUT
-              echo "Found Vertex AI recordings in $RECORDINGS_DIR, will run Vertex tests"
-            else
-              echo "vertex_recordings_exist=false" >> $GITHUB_OUTPUT
-              echo "No Vertex AI recordings found in $RECORDINGS_DIR"
-            fi
-          else
-            echo "vertex_recordings_exist=false" >> $GITHUB_OUTPUT
-            echo "Recordings directory not found at $RECORDINGS_DIR"
-          fi
-
       - name: Integration tests (vLLM)
         if: github.event_name != 'workflow_dispatch'
         id: integration-tests
@@ -149,7 +155,7 @@ jobs:
         run: ./tests/run_integration_tests.sh
 
       - name: Integration tests (Vertex AI)
-        if: github.event_name != 'workflow_dispatch' && steps.check-vertex-recordings.outputs.vertex_recordings_exist == 'true'
+        if: github.event_name != 'workflow_dispatch' && needs['check-vertex-recordings'].result == 'success'
         id: integration-tests-vertex
         env:
           # Use dummy values when using recordings - actual API calls won't be made
