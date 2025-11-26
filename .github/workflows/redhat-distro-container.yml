@@ -40,7 +40,55 @@ env:
   IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
 
 jobs:
+  check-vertex-recordings:
+    name: Check for Vertex AI recordings
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      vertex_recordings_exist: ${{ steps.detect-vertex.outputs.vertex_recordings_exist }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+
+      - name: Detect Vertex AI recordings
+        id: detect-vertex
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK_DIR="/tmp/llama-stack-integration-tests"
+          source scripts/extract-llama-stack-info.sh
+
+          vertex_recordings_exist=false
+
+          if [ ! -d "$WORK_DIR" ]; then
+            git clone "$LLAMA_STACK_REPO" "$WORK_DIR"
+          fi
+
+          cd "$WORK_DIR"
+          git fetch origin
+          git checkout "v$LLAMA_STACK_VERSION" || git checkout "$LLAMA_STACK_VERSION"
+
+          RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
+          if [ -d "$RECORDINGS_DIR" ]; then
+            VERTEX_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null | head -1 || true)
+            if [ -n "$VERTEX_RECORDINGS" ]; then
+              echo "Found Vertex AI recordings in $RECORDINGS_DIR"
+              vertex_recordings_exist=true
+            else
+              echo "No Vertex AI recordings found in $RECORDINGS_DIR"
+            fi
+          else
+            echo "Recordings directory not found at $RECORDINGS_DIR"
+          fi
+
+          echo "vertex_recordings_exist=$vertex_recordings_exist" >> "$GITHUB_OUTPUT"
+          if [ "$vertex_recordings_exist" != "true" ]; then
+            echo "No recordings detected; Vertex AI tests will be skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   build-test-push:
+    needs:
+      - check-vertex-recordings
     runs-on: ubuntu-latest
     env:
       INFERENCE_MODEL: Qwen/Qwen3-0.6B
@@ -108,11 +156,28 @@ jobs:
         shell: bash
         run: ./tests/smoke.sh
 
-      - name: Integration tests
+      - name: Integration tests (vLLM)
         if: github.event_name != 'workflow_dispatch'
         id: integration-tests
         shell: bash
         run: ./tests/run_integration_tests.sh
+
+      - name: Integration tests (Vertex AI)
+        if: github.event_name != 'workflow_dispatch' && needs.check-vertex-recordings.outputs.vertex_recordings_exist == 'true'
+        id: integration-tests-vertex
+        env:
+          # Use dummy values when using recordings - actual API calls won't be made
+          VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT || 'dummy-project' }}
+          VERTEX_AI_LOCATION: ${{ secrets.VERTEX_AI_LOCATION || 'us-central1' }}
+          # Don't set LLAMA_STACK_TEST_INFERENCE_MODE - this will use recordings
+        shell: bash
+        run: |
+          export VERTEX_AI_PROJECT="${VERTEX_AI_PROJECT:-dummy-project}"
+          export VERTEX_AI_LOCATION="${VERTEX_AI_LOCATION:-us-central1}"
+          # Explicitly unset live mode to ensure recordings are used
+          unset LLAMA_STACK_TEST_INFERENCE_MODE
+          echo "Running Vertex AI tests with recordings (no live API calls)"
+          ./tests/run_integration_tests.sh
 
       - name: Gather logs and debugging information
         if: always()
