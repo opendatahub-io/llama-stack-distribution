@@ -87,6 +87,7 @@ jobs:
           VERTEX_AI_LOCATION: us-central1
           PROVIDER_MODEL: vertexai/gemini-1.5-flash
           LLAMA_STACK_TEST_INFERENCE_MODE: ${{ env.LLAMA_STACK_TEST_INFERENCE_MODE }}
+        shell: bash
         run: |
           export VERTEX_AI_PROJECT VERTEX_AI_LOCATION PROVIDER_MODEL LLAMA_STACK_TEST_INFERENCE_MODE
           ./tests/run_integration_tests.sh

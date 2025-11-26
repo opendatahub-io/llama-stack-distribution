@@ -111,6 +111,7 @@ jobs:
       - name: Check for Vertex AI recordings
         if: github.event_name != 'workflow_dispatch'
         id: check-vertex-recordings
+        shell: bash
         run: |
           WORK_DIR="/tmp/llama-stack-integration-tests"
           # Clone llama-stack to check for recordings
