@@ -9,24 +9,8 @@ INFERENCE_MODEL="${INFERENCE_MODEL:-Qwen/Qwen3-0.6B}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Get repository and version dynamically from Containerfile
-# Look for git URL format: git+https://github.com/*/llama-stack.git@vVERSION or @VERSION
-CONTAINERFILE="$SCRIPT_DIR/../distribution/Containerfile"
-GIT_URL=$(grep -o 'git+https://github\.com/[^/]\+/llama-stack\.git@v\?[0-9.+a-z]\+' "$CONTAINERFILE")
-if [ -z "$GIT_URL" ]; then
-    echo "Error: Could not extract llama-stack git URL from Containerfile"
-    exit 1
-fi
-
-# Extract repo URL (remove git+ prefix and @version suffix)
-LLAMA_STACK_REPO=${GIT_URL#git+}
-LLAMA_STACK_REPO=${LLAMA_STACK_REPO%%@*}
-# Extract version (remove git+ prefix and everything before @, and optional v prefix)
-LLAMA_STACK_VERSION=${GIT_URL##*@}
-LLAMA_STACK_VERSION=${LLAMA_STACK_VERSION#v}
-if [ -z "$LLAMA_STACK_VERSION" ]; then
-    echo "Error: Could not extract llama-stack version from Containerfile"
-    exit 1
-fi
+# shellcheck source=scripts/extract-llama-stack-info.sh
+source "$SCRIPT_DIR/../scripts/extract-llama-stack-info.sh"
 
 function clone_llama_stack() {
     # Clone the repository if it doesn't exist

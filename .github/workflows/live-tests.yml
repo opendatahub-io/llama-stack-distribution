@@ -76,7 +76,7 @@ jobs:
 
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null | grep -q '"status":"OK"' && break
-            [ $i -eq 60 ] && { docker logs llama-stack-vertex; docker rm -f llama-stack-vertex; exit 1; }
+            [ "$i" -eq 60 ] && { docker logs llama-stack-vertex; docker rm -f llama-stack-vertex; exit 1; }
             sleep 1
           done
 
@@ -109,7 +109,7 @@ jobs:
           mkdir -p "$REPO_RECORDINGS_DIR"
           echo "$PROVIDER_RECORDINGS" | while IFS= read -r recording; do
             [ -n "$recording" ] && [ -f "$recording" ] && {
-              relative_path=$(echo "$recording" | sed "s|^$RECORDINGS_DIR/||")
+              relative_path="${recording#"$RECORDINGS_DIR"/}"
               mkdir -p "$REPO_RECORDINGS_DIR/$(dirname "$relative_path")"
               cp "$recording" "$REPO_RECORDINGS_DIR/$relative_path"
             }
@@ -159,7 +159,7 @@ jobs:
 
           # Copy all recordings
           find "$REPO_RECORDINGS_DIR" -type f | while IFS= read -r recording; do
-            relative_path=$(echo "$recording" | sed "s|^$REPO_RECORDINGS_DIR/||")
+            relative_path="${recording#"$REPO_RECORDINGS_DIR"/}"
             mkdir -p "$(dirname "$TARGET_RECORDINGS_DIR/$relative_path")"
             cp "$recording" "$TARGET_RECORDINGS_DIR/$relative_path"
           done

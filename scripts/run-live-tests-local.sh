@@ -65,7 +65,7 @@ case "$PROVIDER" in
       echo "Please run: gcloud auth application-default login"
       exit 1
     fi
-    
+
     ENV_ARGS="-e VERTEX_AI_PROJECT=\"$VERTEX_AI_PROJECT\" -e VERTEX_AI_LOCATION=\"$VERTEX_AI_LOCATION\" -e GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-credentials -e GOOGLE_CLOUD_PROJECT=\"$VERTEX_AI_PROJECT\""
     # Check if podman secret exists, create if not
     if ! podman secret exists gcp-credentials 2>/dev/null; then

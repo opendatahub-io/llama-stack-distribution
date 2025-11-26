@@ -115,13 +115,8 @@ jobs:
           WORK_DIR="/tmp/llama-stack-integration-tests"
           # Clone llama-stack to check for recordings
           if [ ! -d "$WORK_DIR" ]; then
-            # Get llama-stack version from Containerfile
-            CONTAINERFILE="distribution/Containerfile"
-            GIT_URL=$(grep -o 'git+https://github\.com/[^/]\+/llama-stack\.git@v\?[0-9.+a-z]\+' "$CONTAINERFILE")
-            LLAMA_STACK_REPO=${GIT_URL#git+}
-            LLAMA_STACK_REPO=${LLAMA_STACK_REPO%%@*}
-            LLAMA_STACK_VERSION=${GIT_URL##*@}
-            LLAMA_STACK_VERSION=${LLAMA_STACK_VERSION#v}
+            # Get llama-stack repo and version from Containerfile
+            source scripts/extract-llama-stack-info.sh
 
             git clone "$LLAMA_STACK_REPO" "$WORK_DIR"
             cd "$WORK_DIR"
