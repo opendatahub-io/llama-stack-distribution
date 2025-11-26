@@ -43,18 +43,22 @@ jobs:
   check-vertex-recordings:
     name: Check for Vertex AI recordings
     runs-on: ubuntu-latest
-    continue-on-error: true
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      vertex_recordings_exist: ${{ steps.detect-vertex.outputs.vertex_recordings_exist }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
 
       - name: Detect Vertex AI recordings
-        if: github.event_name != 'workflow_dispatch'
+        id: detect-vertex
         shell: bash
         run: |
           set -euo pipefail
           WORK_DIR="/tmp/llama-stack-integration-tests"
           source scripts/extract-llama-stack-info.sh
+
+          vertex_recordings_exist=false
 
           if [ ! -d "$WORK_DIR" ]; then
             git clone "$LLAMA_STACK_REPO" "$WORK_DIR"
@@ -65,18 +69,22 @@ jobs:
           git checkout "v$LLAMA_STACK_VERSION" || git checkout "$LLAMA_STACK_VERSION"
 
           RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
-          if [ ! -d "$RECORDINGS_DIR" ]; then
+          if [ -d "$RECORDINGS_DIR" ]; then
+            VERTEX_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null | head -1 || true)
+            if [ -n "$VERTEX_RECORDINGS" ]; then
+              echo "Found Vertex AI recordings in $RECORDINGS_DIR"
+              vertex_recordings_exist=true
+            else
+              echo "No Vertex AI recordings found in $RECORDINGS_DIR"
+            fi
+          else
             echo "Recordings directory not found at $RECORDINGS_DIR"
-            exit 1
           fi
 
-          VERTEX_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null | head -1)
-          if [ -z "$VERTEX_RECORDINGS" ]; then
-            echo "No Vertex AI recordings found in $RECORDINGS_DIR"
-            exit 1
+          echo "vertex_recordings_exist=$vertex_recordings_exist" >> "$GITHUB_OUTPUT"
+          if [ "$vertex_recordings_exist" != "true" ]; then
+            echo "No recordings detected; Vertex AI tests will be skipped." >> "$GITHUB_STEP_SUMMARY"
           fi
-
-          echo "Found Vertex AI recordings in $RECORDINGS_DIR"
 
   build-test-push:
     needs:
@@ -155,7 +163,7 @@ jobs:
         run: ./tests/run_integration_tests.sh
 
       - name: Integration tests (Vertex AI)
-        if: github.event_name != 'workflow_dispatch' && needs['check-vertex-recordings'].result == 'success'
+        if: github.event_name != 'workflow_dispatch' && needs.check-vertex-recordings.outputs.vertex_recordings_exist == 'true'
         id: integration-tests-vertex
         env:
           # Use dummy values when using recordings - actual API calls won't be made
