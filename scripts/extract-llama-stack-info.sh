@@ -22,4 +22,3 @@ if [ -z "$LLAMA_STACK_VERSION" ]; then
     echo "Error: Could not extract llama-stack version from Containerfile" >&2
     exit 1
 fi
-
