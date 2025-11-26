@@ -42,6 +42,7 @@ distribution_spec:
     - provider_type: remote::model-context-protocol
     files:
     - provider_type: inline::localfs
+    - provider_type: remote::s3
   container_image: registry.redhat.io/ubi9/python-311:9.6-1749631027
 additional_pip_packages:
 - aiosqlite
