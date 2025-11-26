@@ -205,6 +205,19 @@ providers:
       metadata_store:
         type: sqlite
         db_path: /opt/app-root/src/.llama/distributions/rh/files_metadata.db
+  - provider_id: ${env.ENABLE_S3:+s3}
+    provider_type: remote::s3
+    config:
+      bucket_name: ${env.S3_BUCKET_NAME:=}
+      region: ${env.AWS_DEFAULT_REGION:=us-east-1}
+      aws_access_key_id: ${env.AWS_ACCESS_KEY_ID:=}
+      aws_secret_access_key: ${env.AWS_SECRET_ACCESS_KEY:=}
+      aws_session_token: ${env.AWS_SESSION_TOKEN:=}
+      endpoint_url: ${env.S3_ENDPOINT_URL:=}
+      auto_create_bucket: ${env.S3_AUTO_CREATE_BUCKET:=false}
+      metadata_store:
+        type: sqlite
+        db_path: /opt/app-root/src/.llama/distributions/rh/s3_files_metadata.db
 metadata_store:
   type: sqlite
   db_path: /opt/app-root/src/.llama/distributions/rh/registry.db
