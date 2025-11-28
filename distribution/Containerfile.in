@@ -11,7 +11,7 @@ COPY --chmod=755 distribution/entrypoint.sh ${{APP_ROOT}}/entrypoint.sh
 
 #TODO: remove this once we have a stable version of llama-stack
 # LLS server version is not aligned with the client version, so we disable the version check
-# Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
+# Currently, LLS client version is 0.3.0, while the server version is 0.3.3+rhai0
 ENV LLAMA_STACK_DISABLE_VERSION_CHECK=true
 
 ENTRYPOINT [ "/opt/app-root/entrypoint.sh" ]

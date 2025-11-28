@@ -12,9 +12,9 @@ RUN pip install --upgrade \
     'ibm-cos-sdk-core==2.14.2' \
     'ibm-cos-sdk==2.14.2'
 RUN pip install \
-    'datasets>=4.0.0' \
-    'mcp>=1.8.1' \
-    'pymilvus[milvus-lite]>=2.4.10' \
+    ''datasets>=4.0.0'' \
+    ''mcp>=1.8.1'' \
+    ''pymilvus[milvus-lite]>=2.4.10'' \
     aiosqlite \
     asyncpg \
     autoevals \
@@ -49,21 +49,21 @@ RUN pip install \
     transformers \
     uvicorn
 RUN pip install \
-    llama_stack_provider_lmeval==0.3.1
+    'llama_stack_provider_lmeval==0.3.1'
 RUN pip install \
-    llama_stack_provider_ragas==0.4.2
+    'llama_stack_provider_ragas==0.4.2'
 RUN pip install \
-    llama_stack_provider_ragas[remote]==0.4.2
+    'llama_stack_provider_ragas[remote]==0.4.2'
 RUN pip install \
-    llama_stack_provider_trustyai_fms==0.2.3
-RUN pip install 'torchao>=0.12.0' --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
+    'llama_stack_provider_trustyai_fms==0.2.3'
+RUN pip install ''torchao>=0.12.0'' --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
 RUN pip install --no-deps sentence-transformers
-RUN pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.3.0rc3+rhai0
+RUN pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.3.3+rhai0
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
 #TODO: remove this once we have a stable version of llama-stack
 # LLS server version is not aligned with the client version, so we disable the version check
-# Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
+# Currently, LLS client version is 0.3.0, while the server version is 0.3.3+rhai0
 ENV LLAMA_STACK_DISABLE_VERSION_CHECK=true
 ENTRYPOINT [ "/opt/app-root/entrypoint.sh" ]
