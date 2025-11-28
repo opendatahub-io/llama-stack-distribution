@@ -11,6 +11,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | API | Provider | External? | Enabled by default? | How to enable |
 |-----|----------|-----------|---------------------|---------------|
 | agents | inline::meta-reference | No | ✅ | N/A |
+| batches | inline::reference | No | ✅ | N/A |
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
 | eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `EMBEDDING_MODEL` environment variable |

@@ -2,6 +2,7 @@ version: 2
 image_name: rh
 apis:
 - agents
+- batches
 - datasetio
 - eval
 - inference
@@ -135,13 +136,13 @@ providers:
   - provider_id: huggingface
     provider_type: remote::huggingface
     config:
-      persistence:
+      kvstore:
         backend: kv_datasetio_huggingface
         namespace: datasetio::huggingface
   - provider_id: localfs
     provider_type: inline::localfs
     config:
-      persistence:
+      kvstore:
         backend: kv_datasetio_localfs
         namespace: datasetio::localfs
   scoring:
@@ -180,6 +181,13 @@ providers:
       metadata_store:
         backend: sql_files
         table_name: files_metadata
+  batches:
+  - provider_id: reference
+    provider_type: inline::reference
+    config:
+      kvstore:
+        namespace: batches
+        backend: kv_default
 storage:
   backends:
     kv_default:
