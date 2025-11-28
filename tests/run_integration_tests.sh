@@ -5,6 +5,7 @@ set -exuo pipefail
 # Configuration
 WORK_DIR="/tmp/llama-stack-integration-tests"
 INFERENCE_MODEL="${INFERENCE_MODEL:-Qwen/Qwen3-0.6B}"
+LLAMA_STACK_TEST_INFERENCE_MODE="${LLAMA_STACK_TEST_INFERENCE_MODE:-live}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -39,7 +40,7 @@ function run_integration_tests() {
     # TODO: enable these when we have a stable version of llama-stack client and server versions are aligned
     RC2_SKIP_TESTS=" or test_openai_completion_logprobs or test_openai_completion_logprobs_streaming or test_openai_chat_completion_structured_output or test_multiple_tools_with_different_schemas or test_mcp_tools_in_inference or test_tool_with_complex_schema or test_tool_without_schema"
     # TODO: re-enable the 2 chat_completion_non_streaming tests once they contain include max tokens (to prevent them from rambling)
-    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming$RC2_SKIP_TESTS"
+    SKIP_TESTS=${SKIP_TESTS:-"test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming$RC2_SKIP_TESTS"}
 
     # Dynamically determine the path to run.yaml from the original script directory
     STACK_CONFIG_PATH="$SCRIPT_DIR/../distribution/run.yaml"
@@ -55,7 +56,7 @@ function run_integration_tests() {
         echo "Using provider model: $TEXT_MODEL"
     elif [ -n "${VERTEX_AI_PROJECT:-}" ]; then
         # Use Vertex AI provider
-        TEXT_MODEL="vertexai/gemini-2.0-flash"
+        TEXT_MODEL="vertexai/google/gemini-2.0-flash"
         echo "Using Vertex AI provider with project: $VERTEX_AI_PROJECT"
         echo "Using model: $TEXT_MODEL"
     else
@@ -69,6 +70,7 @@ function run_integration_tests() {
         --stack-config=server:"$STACK_CONFIG_PATH" \
         --text-model="$TEXT_MODEL" \
         --embedding-model=granite-embedding-125m \
+        --inference-mode="$LLAMA_STACK_TEST_INFERENCE_MODE" \
         -k "not ($SKIP_TESTS)"
 }
 
@@ -79,8 +81,8 @@ function main() {
     echo "  LLAMA_STACK_REPO: $LLAMA_STACK_REPO"
     echo "  WORK_DIR: $WORK_DIR"
     echo "  INFERENCE_MODEL: $INFERENCE_MODEL"
+    echo "  LLAMA_STACK_TEST_INFERENCE_MODE: $LLAMA_STACK_TEST_INFERENCE_MODE"
     echo "  VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-not set}"
-    echo "  VERTEX_AI_LOCATION: ${VERTEX_AI_LOCATION:-not set}"
 
     clone_llama_stack
     run_integration_tests

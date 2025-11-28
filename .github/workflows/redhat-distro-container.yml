@@ -70,12 +70,14 @@ jobs:
 
           RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
           if [ -d "$RECORDINGS_DIR" ]; then
-            VERTEX_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null | head -1 || true)
-            if [ -n "$VERTEX_RECORDINGS" ]; then
-              echo "Found Vertex AI recordings in $RECORDINGS_DIR"
+            # Check if any recordings exist (recordings don't have provider-specific names)
+            # If recordings exist, assume vertex tests can run
+            RECORDING_COUNT=$(find "$RECORDINGS_DIR" -type f -name "*.json" 2>/dev/null | wc -l || echo "0")
+            if [ "$RECORDING_COUNT" -gt 0 ]; then
+              echo "Found $RECORDING_COUNT recording(s) in $RECORDINGS_DIR"
               vertex_recordings_exist=true
             else
-              echo "No Vertex AI recordings found in $RECORDINGS_DIR"
+              echo "No recordings found in $RECORDINGS_DIR"
             fi
           else
             echo "Recordings directory not found at $RECORDINGS_DIR"
@@ -172,8 +174,6 @@ jobs:
           # Don't set LLAMA_STACK_TEST_INFERENCE_MODE - this will use recordings
         shell: bash
         run: |
-          export VERTEX_AI_PROJECT="${VERTEX_AI_PROJECT:-dummy-project}"
-          export VERTEX_AI_LOCATION="${VERTEX_AI_LOCATION:-us-central1}"
           # Explicitly unset live mode to ensure recordings are used
           unset LLAMA_STACK_TEST_INFERENCE_MODE
           echo "Running Vertex AI tests with recordings (no live API calls)"

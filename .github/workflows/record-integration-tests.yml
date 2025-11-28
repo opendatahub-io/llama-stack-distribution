@@ -80,12 +80,11 @@ jobs:
             sleep 1
           done
 
-      - name: Run integration tests
+      - name: Run integration tests (record mode)
         id: run-tests
         env:
           VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
-          VERTEX_AI_LOCATION: us-central1
-          PROVIDER_MODEL: vertexai/gemini-1.5-flash
+          LLAMA_STACK_TEST_INFERENCE_MODE: record
         shell: bash
         run: |
           ./tests/run_integration_tests.sh
@@ -96,20 +95,34 @@ jobs:
 
           [ ! -d "$RECORDINGS_DIR" ] && exit 0
 
-          # Find Vertex AI recordings
-          PROVIDER_RECORDINGS=$(find "$RECORDINGS_DIR" -type f \( -name "*vertex*" -o -name "*vertexai*" -o -path "*vertex*" \) 2>/dev/null || true)
-          [ -z "$PROVIDER_RECORDINGS" ] && exit 0
+          # Find all recording JSON files (flexible approach - no provider-specific filtering)
+          RECORDING_FILES=$(find "$RECORDINGS_DIR" -type f -name "*.json" 2>/dev/null || true)
+          [ -z "$RECORDING_FILES" ] && exit 0
 
-          # Copy to repository
+          # Copy all recordings to repository (preserving directory structure)
           REPO_RECORDINGS_DIR="tests/integration/recordings"
           mkdir -p "$REPO_RECORDINGS_DIR"
-          echo "$PROVIDER_RECORDINGS" | while IFS= read -r recording; do
+          echo "$RECORDING_FILES" | while IFS= read -r recording; do
             [ -n "$recording" ] && [ -f "$recording" ] && {
               relative_path="${recording#"$RECORDINGS_DIR"/}"
+              # Remove leading slash if present
+              relative_path="${relative_path#/}"
               mkdir -p "$REPO_RECORDINGS_DIR/$(dirname "$relative_path")"
               cp "$recording" "$REPO_RECORDINGS_DIR/$relative_path"
             }
           done
+
+          # Normalize recordings to reduce git diff noise
+          # Use the normalization script from the cloned llama-stack repository
+          # The script searches for recordings relative to its location, so we create a temporary
+          # symlink in our local repo so it can find our local recordings
+          NORMALIZE_SCRIPT="$WORK_DIR/scripts/normalize_recordings.py"
+          if [ -f "$NORMALIZE_SCRIPT" ]; then
+            TEMP_NORMALIZE_LINK="scripts/normalize_recordings.py"
+            ln -sf "$NORMALIZE_SCRIPT" "$TEMP_NORMALIZE_LINK"
+            python3 "$TEMP_NORMALIZE_LINK" || echo "Warning: Normalization failed, continuing..."
+            rm -f "$TEMP_NORMALIZE_LINK"
+          fi
       - name: Cleanup
         if: always()
         run: docker rm -f llama-stack-vertex || true
