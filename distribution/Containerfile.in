@@ -1,6 +1,7 @@
 FROM registry.access.redhat.com/ubi9/python-312@sha256:95ec8d3ee9f875da011639213fd254256c29bc58861ac0b11f290a291fa04435
 WORKDIR /opt/app-root
 
+RUN pip install uv
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 {dependencies}
 {llama_stack_install_source}

@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       INFERENCE_MODEL: Qwen/Qwen3-0.6B
-      EMBEDDING_MODEL: granite-embedding-125m
+      EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
     strategy:
@@ -73,7 +73,7 @@ jobs:
           LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
         run: |
           tmp_build_dir=$(mktemp -d)
-          git clone --filter=blob:none --no-checkout https://github.com/llamastack/llama-stack.git "$tmp_build_dir"
+          git clone --filter=blob:none --no-checkout https://github.com/opendatahub-io/llama-stack.git "$tmp_build_dir"
           cd "$tmp_build_dir"
           git checkout "$LLAMA_STACK_VERSION"
           python3 -m venv .venv

@@ -11,9 +11,10 @@ import shutil
 import subprocess
 import sys
 import os
+import shlex
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "0.3.0rc3+rhai0"
+CURRENT_LLAMA_STACK_VERSION = "main"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
@@ -30,7 +31,7 @@ PINNED_DEPENDENCIES = [
     "'ibm-cos-sdk==2.14.2'",
 ]
 
-source_install_command = """RUN pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v{llama_stack_version}"""
+source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}"""
 
 
 def get_llama_stack_install(llama_stack_version):
@@ -47,10 +48,10 @@ def is_install_from_source(llama_stack_version):
     return "." not in llama_stack_version or "+rhai" in llama_stack_version
 
 
-def check_llama_installed():
+def check_package_installed(package_name):
     """Check if llama binary is installed and accessible."""
-    if not shutil.which("llama"):
-        print("Error: llama binary not found. Please install it first.")
+    if not shutil.which(package_name):
+        print(f"Error: {package_name} not found. Please install it first.")
         sys.exit(1)
 
 
@@ -87,9 +88,32 @@ def check_llama_stack_version():
         print("Continuing without version validation...")
 
 
+def install_llama_stack_from_source(llama_stack_version):
+    """Install llama-stack from source using git."""
+    print("installing llama-stack from source...")
+    try:
+        result = subprocess.run(
+            f"uv pip install git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}",
+            shell=True,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        # Print stdout if there's any output
+        if result.stdout:
+            print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Error installing llama-stack: {e}")
+        if e.stdout:
+            print(f"stdout: {e.stdout}")
+        if e.stderr:
+            print(f"stderr: {e.stderr}")
+        sys.exit(1)
+
+
 def get_dependencies():
     """Execute the llama stack build command and capture dependencies."""
-    cmd = "llama stack build --config distribution/build.yaml --print-deps-only"
+    cmd = "llama stack list-deps distribution/build.yaml"
     try:
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, check=True
@@ -101,48 +125,83 @@ def get_dependencies():
         no_cache = []
 
         for line in result.stdout.splitlines():
-            if line.strip().startswith("uv pip"):
-                # Split the line into command and packages
-                parts = line.replace("uv ", "RUN ", 1).split(" ", 3)
+            line = line.strip()
+            if not line:  # Skip empty lines
+                continue
+
+            # Handle both "uv pip" format and direct package list format
+            if line.startswith("uv pip"):
+                # Legacy format: "uv pip install ..."
+                line = line.replace("uv ", "RUN ", 1)
+                parts = line.split(" ", 3)
                 if len(parts) >= 4:  # We have packages to sort
                     cmd_parts = parts[:3]  # "RUN pip install"
-                    packages = sorted(
-                        set(parts[3].split())
-                    )  # Sort the package names and remove duplicates
-
-                    # Add quotes to packages with > or < to prevent bash redirection
-                    packages = [
-                        f"'{package}'"
-                        if (">" in package or "<" in package)
-                        else package
-                        for package in packages
-                    ]
-
-                    # Modify pymilvus package to include milvus-lite extra
-                    packages = [
-                        package.replace("pymilvus", "pymilvus[milvus-lite]")
-                        if "pymilvus" in package and "[milvus-lite]" not in package
-                        else package
-                        for package in packages
-                    ]
-                    packages = sorted(set(packages))
-
-                    # Determine command type and format accordingly
-                    if ("--index-url" in line) or ("--extra-index-url" in line):
-                        full_cmd = " ".join(cmd_parts + [" ".join(packages)])
-                        torch_deps.append(full_cmd)
-                    elif "--no-deps" in line:
-                        full_cmd = " ".join(cmd_parts + [" ".join(packages)])
-                        no_deps.append(full_cmd)
-                    elif "--no-cache" in line:
-                        full_cmd = " ".join(cmd_parts + [" ".join(packages)])
-                        no_cache.append(full_cmd)
-                    else:
-                        formatted_packages = " \\\n    ".join(packages)
-                        full_cmd = f"{' '.join(cmd_parts)} \\\n    {formatted_packages}"
-                        standard_deps.append(full_cmd)
+                    packages_str = parts[3]
                 else:
                     standard_deps.append(" ".join(parts))
+                    continue
+            else:
+                # New format: just packages, possibly with flags
+                cmd_parts = ["RUN", "uv", "pip", "install"]
+                packages_str = line
+
+            # Parse packages and flags from the line
+            # Use shlex.split to properly handle quoted package names
+            parts_list = shlex.split(packages_str)
+            packages = []
+            flags = []
+            extra_index_url = None
+
+            i = 0
+            while i < len(parts_list):
+                if parts_list[i] == "--extra-index-url" and i + 1 < len(parts_list):
+                    extra_index_url = parts_list[i + 1]
+                    flags.extend([parts_list[i], parts_list[i + 1]])
+                    i += 2
+                elif parts_list[i] == "--index-url" and i + 1 < len(parts_list):
+                    flags.extend([parts_list[i], parts_list[i + 1]])
+                    i += 2
+                elif parts_list[i] in ["--no-deps", "--no-cache"]:
+                    flags.append(parts_list[i])
+                    i += 1
+                else:
+                    packages.append(parts_list[i])
+                    i += 1
+
+            # Sort and deduplicate packages
+            packages = sorted(set(packages))
+
+            # Add quotes to packages with > or < to prevent bash redirection
+            packages = [
+                f"'{package}'" if (">" in package or "<" in package) else package
+                for package in packages
+            ]
+
+            # Modify pymilvus package to include milvus-lite extra
+            packages = [
+                package.replace("pymilvus", "pymilvus[milvus-lite]")
+                if "pymilvus" in package and "[milvus-lite]" not in package
+                else package
+                for package in packages
+            ]
+            packages = sorted(set(packages))
+
+            # Build the command based on flags
+            if extra_index_url or "--index-url" in flags:
+                # Torch dependencies with extra index URL
+                full_cmd = " ".join(cmd_parts + flags + packages)
+                torch_deps.append(full_cmd)
+            elif "--no-deps" in flags:
+                full_cmd = " ".join(cmd_parts + flags + packages)
+                no_deps.append(full_cmd)
+            elif "--no-cache" in flags:
+                full_cmd = " ".join(cmd_parts + flags + packages)
+                no_cache.append(full_cmd)
+            else:
+                # Standard dependencies with multi-line formatting
+                formatted_packages = " \\\n    ".join(packages)
+                full_cmd = f"{' '.join(cmd_parts)} \\\n    {formatted_packages}"
+                standard_deps.append(full_cmd)
 
         # Combine all dependencies in specific order
         all_deps = []
@@ -150,7 +209,7 @@ def get_dependencies():
         # Add pinned dependencies FIRST to ensure version compatibility
         if PINNED_DEPENDENCIES:
             pinned_packages = " \\\n    ".join(PINNED_DEPENDENCIES)
-            pinned_cmd = f"RUN pip install --upgrade \\\n    {pinned_packages}"
+            pinned_cmd = f"RUN uv pip install --upgrade \\\n    {pinned_packages}"
             all_deps.append(pinned_cmd)
 
         all_deps.extend(sorted(standard_deps))  # Regular pip installs
@@ -203,8 +262,11 @@ def generate_containerfile(dependencies, llama_stack_install):
 
 
 def main():
+    check_package_installed("uv")
+    install_llama_stack_from_source(LLAMA_STACK_VERSION)
+
     print("Checking llama installation...")
-    check_llama_installed()
+    check_package_installed("llama")
 
     # Do not perform version check if installing from source
     if not is_install_from_source(LLAMA_STACK_VERSION):
