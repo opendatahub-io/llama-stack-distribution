@@ -13,7 +13,7 @@ import sys
 import os
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "0.3.0rc3+rhai0"
+CURRENT_LLAMA_STACK_VERSION = "0.3.3+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
@@ -88,8 +88,8 @@ def check_llama_stack_version():
 
 
 def get_dependencies():
-    """Execute the llama stack build command and capture dependencies."""
-    cmd = "llama stack build --config distribution/build.yaml --print-deps-only"
+    """Execute the llama stack list-deps command and capture dependencies."""
+    cmd = "llama stack list-deps --format uv distribution/build.yaml"
     try:
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, check=True
