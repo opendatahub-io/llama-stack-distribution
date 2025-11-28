@@ -50,7 +50,7 @@ function test_model_list {
 
 function test_model_openai_inference {
   echo "===> Attempting to chat with model $INFERENCE_MODEL..."
-  resp=$(curl -fsS http://127.0.0.1:8321/v1/openai/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$INFERENCE_MODEL\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
+  resp=$(curl -fsS http://127.0.0.1:8321/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$INFERENCE_MODEL\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
   if echo "$resp" | grep -q "green"; then
     echo "===> Inference is working :)"
     return
