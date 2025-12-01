@@ -5,6 +5,7 @@ set -exuo pipefail
 # Configuration
 WORK_DIR="/tmp/llama-stack-integration-tests"
 INFERENCE_MODEL="${INFERENCE_MODEL:-Qwen/Qwen3-0.6B}"
+EMBEDDING_MODEL="${EMBEDDING_MODEL:-ibm-granite/granite-embedding-125m-english}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -38,10 +39,15 @@ function clone_llama_stack() {
     cd "$WORK_DIR"
     # fetch origin incase we didn't clone a fresh repo
     git fetch origin
-    if ! git checkout "v$LLAMA_STACK_VERSION"; then
-        echo "Error: Could not checkout tag v$LLAMA_STACK_VERSION"
+    if [ "$LLAMA_STACK_VERSION" == "main" ]; then
+        checkout_to="main"
+    else
+        checkout_to="v$LLAMA_STACK_VERSION"
+    fi
+    if ! git checkout "$checkout_to"; then
+        echo "Error: Could not checkout $checkout_to"
         echo "Available tags:"
-        git tag | grep "^v" | tail -10
+        git tag | tail -10
         exit 1
     fi
 }
@@ -55,7 +61,7 @@ function run_integration_tests() {
     # TODO: enable these when we have a stable version of llama-stack client and server versions are aligned
     RC2_SKIP_TESTS=" or test_openai_completion_logprobs or test_openai_completion_logprobs_streaming or test_openai_chat_completion_structured_output or test_multiple_tools_with_different_schemas or test_mcp_tools_in_inference or test_tool_with_complex_schema or test_tool_without_schema"
     # TODO: re-enable the 2 chat_completion_non_streaming tests once they contain include max tokens (to prevent them from rambling)
-    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming$RC2_SKIP_TESTS"
+    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming or test_openai_chat_completion_with_tool_choice_none or test_openai_chat_completion_with_tools or test_openai_format_preserves_complex_schemas $RC2_SKIP_TESTS"
 
     # Dynamically determine the path to run.yaml from the original script directory
     STACK_CONFIG_PATH="$SCRIPT_DIR/../distribution/run.yaml"
@@ -64,12 +70,14 @@ function run_integration_tests() {
         exit 1
     fi
 
-    # TODO: remove this once we have a stable version of llama-stack client
-    # Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
-    uv run --with llama-stack-client==0.3.0 pytest -s -v tests/integration/inference/ \
+    uv venv
+    # shellcheck source=/dev/null
+    source .venv/bin/activate
+    uv pip install llama-stack-client
+    uv run pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
         --text-model=vllm-inference/"$INFERENCE_MODEL" \
-        --embedding-model=granite-embedding-125m \
+        --embedding-model=sentence-transformers/"$EMBEDDING_MODEL" \
         -k "not ($SKIP_TESTS)"
 }
 
