@@ -26,7 +26,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/open-data-hub-tenant/odh-llama-stack-core-poc:{{revision}}
   - name: dockerfile
-    value: Containerfile
+    value: distribution/Containerfile
   - name: path-context
     value: distribution
   pipelineSpec:
