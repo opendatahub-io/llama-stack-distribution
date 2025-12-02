@@ -44,8 +44,8 @@ pull_request_rules:
 
 - name: ping author on conflicts and add 'needs-rebase' label
   conditions:
-      - conflict
-      - -closed
+    - conflict
+    - -closed
   actions:
     label:
       add:
@@ -58,8 +58,8 @@ pull_request_rules:
 
 - name: remove 'needs-rebase' label when conflict is resolved
   conditions:
-      - -conflict
-      - -closed
+    - -conflict
+    - -closed
   actions:
     label:
       remove:
