@@ -42,13 +42,16 @@ jobs:
   # Uses fail-fast: false so both providers run independently - failure in one doesn't cancel the other
   test:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     env:
       INFERENCE_MODEL: Qwen/Qwen3-0.6B
       EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.llama_stack_commit_sha || 'main' }}
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
-      VERTEX_AI_LOCATION: ${{ secrets.VERTEX_AI_LOCATION != '' && secrets.VERTEX_AI_LOCATION || 'us-central1' }}
+      VERTEX_AI_LOCATION: 'us-central1'
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
     strategy:
       # fail-fast: false ensures both provider tests run independently
@@ -57,10 +60,12 @@ jobs:
         # Matrix strategy runs tests for both providers in parallel
         # Each matrix entry gets its own job with provider-specific steps
         include:
-          - provider: vllm
+          - provider: vllm-inference
             platform: linux/amd64
-          - provider: vertex
+            inference_model: Qwen/Qwen3-0.6B
+          - provider: vertexai
             platform: linux/amd64
+            inference_model: google/gemini-2.0-flash
 
     steps:
       - name: Checkout repository
@@ -108,83 +113,36 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Start VLLM
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm'
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
         uses: ./.github/actions/setup-vllm
 
       - name: Start and smoke test LLS distro image (vLLM)
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm'
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
         id: smoke-test
         shell: bash
         run: ./tests/smoke.sh
 
-      - name: Integration tests (vLLM)
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm'
-        id: integration-tests-vllm
-        shell: bash
-        run: ./tests/run_integration_tests.sh
-
-      # Vertex AI provider steps - only run when secrets are configured
-      # Note: Subsequent steps have conditional checks, so they'll automatically skip if secrets are missing
-      - name: Validate Vertex AI configuration
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex'
-        shell: bash
-        run: |
-          if [ -z "${{ env.VERTEX_AI_PROJECT }}" ] || [ -z "${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]; then
-            echo "⚠️ Vertex AI secrets not configured. Vertex AI test steps will be skipped."
-            echo "To enable Vertex AI tests, configure these repository secrets:"
-            echo "  - VERTEX_AI_PROJECT: Your GCP project ID"
-            echo "  - GCP_WORKLOAD_IDENTITY_PROVIDER: OIDC workload identity provider"
-          else
-            echo "✅ Vertex AI secrets configured. Proceeding with Vertex AI tests."
-          fi
-
-      - name: Authenticate to Google Cloud
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        uses: google-github-actions/auth@v2
+      # Vertex AI authentication and container setup - consolidated into one block
+      - name: Authenticate to Google Cloud (Vertex)
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertexai' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        uses: google-github-actions/auth@v3
         with:
+          project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
-      - name: Set up Cloud SDK
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+      - name: Set up Cloud SDK (Vertex)
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertexai' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure gcloud
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        run: |
-          gcloud config set project "${{ env.VERTEX_AI_PROJECT }}"
-          gcloud config set compute/region "${{ env.VERTEX_AI_LOCATION }}"
-
-      - name: Start Llama Stack container (Vertex)
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+      - name: Integration tests
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          INFERENCE_MODEL: ${{ matrix.provider }}/${{ matrix.inference_model }}
+        id: integration-tests
         shell: bash
         run: |
-          echo "Starting Llama Stack container with Vertex AI provider..."
-          docker run -d --net=host -p 8321:8321 \
-            -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
-            -e VERTEX_AI_PROJECT="${{ env.VERTEX_AI_PROJECT }}" \
-            -e VERTEX_AI_LOCATION="${{ env.VERTEX_AI_LOCATION }}" \
-            -e GOOGLE_APPLICATION_CREDENTIALS="" \
-            --name llama-stack-vertex \
-            "${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
-
-          # Health check: wait up to 60 seconds for server to be ready
-          # This ensures the container is fully started before running tests
-          echo "Waiting for Vertex-backed Llama Stack to be ready..."
-          for i in {1..60}; do
-            curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null | grep -q '"status":"OK"' && break
-            if [ "$i" -eq 60 ]; then
-              docker logs llama-stack-vertex || true
-              docker rm -f llama-stack-vertex || true
-              exit 1
-            fi
-            sleep 1
-          done
-
-      - name: Integration tests (Vertex)
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        id: integration-tests-vertex
-        shell: bash
-        run: ./tests/run_integration_tests.sh
+          echo "Running integration tests for ${{ matrix.provider }} with model ${{ matrix.inference_model }}"
+          ./tests/run_integration_tests.sh
 
       - name: Gather logs and debugging information
         if: always() && github.event_name != 'workflow_dispatch'
@@ -195,7 +153,6 @@ jobs:
 
           docker logs llama-stack > "$TARGET_DIR/llama-stack.log" 2>&1 || true
           docker logs vllm > "$TARGET_DIR/vllm.log" 2>&1 || true
-          docker logs llama-stack-vertex > "$TARGET_DIR/llama-stack-vertex.log" 2>&1 || true
 
           {
             echo "Disk usage:" && df -h
@@ -222,4 +179,4 @@ jobs:
         if: always()
         shell: bash
         run: |
-          docker rm -f vllm llama-stack llama-stack-vertex >/dev/null 2>&1 || true
+          docker rm -f vllm llama-stack >/dev/null 2>&1 || true

@@ -10,9 +10,24 @@ EMBEDDING_MODEL="${EMBEDDING_MODEL:-ibm-granite/granite-embedding-125m-english}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Get repository and version dynamically from Containerfile
+# Look for git URL format: git+https://github.com/*/llama-stack.git@vVERSION or @VERSION
+CONTAINERFILE="$SCRIPT_DIR/../distribution/Containerfile"
+GIT_URL=$(grep -o 'git+https://github\.com/[^/]\+/llama-stack\.git@v\?[0-9.+a-z]\+' "$CONTAINERFILE")
+if [ -z "$GIT_URL" ]; then
+    echo "Error: Could not extract llama-stack git URL from Containerfile"
+    exit 1
+fi
 
-# shellcheck source=/dev/null
-source "$SCRIPT_DIR/../scripts/extract-llama-stack-info.sh"
+# Extract repo URL (remove git+ prefix and @version suffix)
+LLAMA_STACK_REPO=${GIT_URL#git+}
+LLAMA_STACK_REPO=${LLAMA_STACK_REPO%%@*}
+# Extract version (remove git+ prefix and everything before @, and optional v prefix)
+LLAMA_STACK_VERSION=${GIT_URL##*@}
+LLAMA_STACK_VERSION=${LLAMA_STACK_VERSION#v}
+if [ -z "$LLAMA_STACK_VERSION" ]; then
+    echo "Error: Could not extract llama-stack version from Containerfile"
+    exit 1
+fi
 
 function clone_llama_stack() {
     # Clone the repository if it doesn't exist
@@ -55,22 +70,6 @@ function run_integration_tests() {
         exit 1
     fi
 
-    # Determine provider and model based on environment variables
-    if [ -n "${PROVIDER_MODEL:-}" ]; then
-        # Use provider model from environment (set by live test scripts)
-        INFERENCE_MODEL="$PROVIDER_MODEL"
-        echo "Using provider model: $INFERENCE_MODEL"
-    elif [ -n "${VERTEX_AI_PROJECT:-}" ]; then
-        # Use Vertex AI provider
-        INFERENCE_MODEL="vertexai/google/gemini-2.0-flash"
-        echo "Using Vertex AI provider with project: $VERTEX_AI_PROJECT"
-        echo "Using model: $INFERENCE_MODEL"
-    else
-        # Use vllm-inference provider (default)
-        INFERENCE_MODEL="vllm-inference/$INFERENCE_MODEL"
-        echo "Using vllm-inference provider with model: $INFERENCE_MODEL"
-    fi
-
     uv venv
     # shellcheck source=/dev/null
     source .venv/bin/activate
@@ -89,7 +88,6 @@ function main() {
     echo "  LLAMA_STACK_REPO: $LLAMA_STACK_REPO"
     echo "  WORK_DIR: $WORK_DIR"
     echo "  INFERENCE_MODEL: $INFERENCE_MODEL"
-    echo "  VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-not set}"
 
     clone_llama_stack
     run_integration_tests
