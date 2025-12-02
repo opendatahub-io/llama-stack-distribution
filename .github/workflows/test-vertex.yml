@@ -1,0 +1,54 @@
+name: Test Google Vertex AI OIDC
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  id-token: write
+
+jobs:
+  test_google_auth:
+    runs-on: ubuntu-latest
+    env:
+      VERTEX_AI_LOCATION: 'us-central1'
+    steps:
+    - uses: 'actions/checkout@v4'
+
+    - id: 'auth'
+      name: 'Authenticate to GCP'
+      uses: 'google-github-actions/auth@fc2174804b84f912b1f6d334e9463f484f1c552d'
+      with:
+          create_credentials_file: 'true'
+          project_id: 'aaet-dev'
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+    - id: 'gcloud'
+      name: 'gcloud'
+      run: |-
+        gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
+        gcloud services list
+
+    - name: 'inference'
+      env:
+        VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
+      run: |-
+        curl -f -X POST \
+          -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+          -H "Content-Type: application/json" \
+          "https://${VERTEX_AI_LOCATION}-aiplatform.googleapis.com/v1beta1/projects/${VERTEX_AI_PROJECT}/locations/${VERTEX_AI_LOCATION}/endpoints/openapi/chat/completions" \
+          -d '{
+                "model": "google/gemini-2.5-flash",
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "You are a helpful assistant."
+                  },
+                  {
+                    "role": "user",
+                    "content": "Hello! Can you tell me a joke?"
+                  }
+                ],
+                "temperature": 1.0,
+                "max_tokens": 256
+              }'
