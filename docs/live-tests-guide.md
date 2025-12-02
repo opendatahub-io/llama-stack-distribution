@@ -4,15 +4,16 @@ This guide explains how to run Llama Stack integration tests in live inference m
 
 ## Supported Providers
 
-- **vllm** – Local VLLM inference server (default)
-- **vertex** – Google Cloud Vertex AI (when GCP secrets are configured)
+- **vllm-inference** – Local VLLM inference server (default)
+- **vertexai** – Google Cloud Vertex AI (when GCP secrets are configured)
 
-The `scripts/run-live-tests-local.sh` helper auto-detects the provider based on environment variables. In CI, both providers are tested in parallel using a matrix strategy.
+In CI, both providers are tested in parallel using a matrix strategy in `.github/workflows/run-integration-tests.yml`.
 
 ## Prerequisites
 
-- **Podman** – Build and run the container image (for local testing)
+- **Docker/Podman** – Build and run the container image (for local testing)
 - **gcloud CLI** – Authenticate to GCP for Vertex AI (for Vertex AI testing)
+- **uv** – Python package manager (installed automatically in CI)
 
 ## Running Tests Locally
 
@@ -39,8 +40,11 @@ timeout 900 bash -c 'until curl -fsS http://localhost:8000/health >/dev/null; do
   sleep 5
 done'
 
-# Run tests
-./scripts/run-live-tests-local.sh
+# Set environment variables and run tests
+export INFERENCE_MODEL="vllm-inference/Qwen/Qwen3-0.6B"
+export EMBEDDING_MODEL="ibm-granite/granite-embedding-125m-english"
+export VLLM_URL="http://localhost:8000/v1"
+./tests/run_integration_tests.sh
 
 # Clean up
 podman rm -f vllm
@@ -49,288 +53,181 @@ podman rm -f vllm
 ### Using Vertex AI
 
 ```bash
+# Authenticate to GCP
 export VERTEX_AI_PROJECT=your-gcp-project-id
 export VERTEX_AI_LOCATION=us-central1        # optional, defaults to us-central1
 gcloud auth application-default login        # ensures ADC credentials exist
 
-./scripts/run-live-tests-local.sh
+# Set environment variables and run tests
+export INFERENCE_MODEL="vertexai/google/gemini-2.0-flash"
+export EMBEDDING_MODEL="ibm-granite/granite-embedding-125m-english"
+export VERTEX_AI_PROJECT="your-gcp-project-id"
+export VERTEX_AI_LOCATION="us-central1"
+./tests/run_integration_tests.sh
 ```
 
-The script performs the following steps:
-
-1. Builds the Llama Stack container image from the current repo.
-2. Starts the container configured for the detected provider (Vertex AI when `VERTEX_AI_PROJECT` is set, vLLM otherwise).
-3. Runs the integration test suite in live mode only.
-4. Tears down the container on completion.
+**Note:** The test script (`tests/run_integration_tests.sh`) is provider-agnostic and expects the `INFERENCE_MODEL` environment variable to be set with the full provider prefix (e.g., `vllm-inference/Qwen/Qwen3-0.6B` or `vertexai/google/gemini-2.0-flash`).
 
 ## CI/CD Workflow
 
-The `.github/workflows/redhat-distro-container.yml` workflow runs integration tests for both providers using a matrix strategy.
+The `.github/workflows/run-integration-tests.yml` workflow runs integration tests for both providers using a matrix strategy. The `.github/workflows/redhat-distro-container.yml` workflow handles building and publishing images only after tests pass.
 
 ### Triggering
 
 - **Pull Requests**: Automatically runs on PRs to `main`, `rhoai-v*`, and `konflux-poc*` branches
 - **Push**: Runs on pushes to `main` and `rhoai-v*` branches
 - **Scheduled**: Daily at 06:00 UTC
-- **Manual**: `gh workflow run redhat-distro-container.yml` or via the GitHub UI
+- **Manual**: `gh workflow run run-integration-tests.yml` or via the GitHub UI
 
 ### Required Secrets
 
 For Vertex AI tests to run in CI:
 
 - `VERTEX_AI_PROJECT` – Target GCP project
-- `GCP_WORKLOAD_IDENTITY_PROVIDER` – Used for OIDC authentication
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` – Used for OIDC authentication via Workload Identity Federation
 - `VERTEX_AI_LOCATION` – Optional, defaults to `us-central1` if not set
 
-If Vertex AI secrets are not configured, the Vertex AI matrix job will skip with a message.
+If Vertex AI secrets are not configured, the Vertex AI matrix job will skip authentication steps and complete successfully (no tests will run).
 
 ### How it Works
 
 1. **Build Phase**: Builds the container image once (shared across matrix jobs)
 2. **Test Phase**: Runs two parallel matrix jobs:
-   - **vLLM**: Starts VLLM container, runs smoke tests and integration tests
-   - **Vertex AI**: Authenticates to GCP using Workload Identity Federation, starts container with Vertex AI configuration, runs integration tests in live mode
-3. **Publish Phase**: Only after all matrix jobs pass, the image is published to Quay.io
+   - **vllm-inference**: Starts VLLM container, runs smoke tests and integration tests
+   - **vertexai**: Authenticates to GCP using Workload Identity Federation (v3), sets up gcloud SDK, runs integration tests in live mode (no container needed - Vertex AI is a remote service)
+3. **Publish Phase**: The `redhat-distro-container.yml` workflow triggers after tests pass and publishes the image to Quay.io
 
 The workflow uses `fail-fast: false` so both provider tests run independently, and failures in one don't cancel the other.
 
+**Important:** Vertex AI is a remote cloud service, so no local container is needed. The tests connect directly to the Vertex AI API after authentication.
+
 ## Adding New Providers
 
-This section provides step-by-step instructions for adding support for a new inference provider. Follow these steps in order, using the existing `vllm` and `vertex` implementations as reference examples.
+This section provides step-by-step instructions for adding support for a new inference provider. The test script (`tests/run_integration_tests.sh`) is provider-agnostic and expects `INFERENCE_MODEL` to be set with the full provider prefix (e.g., `provider-name/model-name`). All provider-specific logic is handled in the GitHub Actions workflow.
 
-### Step 1: Update `scripts/run-live-tests-local.sh`
+**For Code Agents (Cursor, Copilot, Claude):** Follow these steps in order. Each step includes exact file locations, code patterns, and examples. Use the existing `vllm-inference` and `vertexai` implementations as reference.
 
-#### 1.1 Add Provider Detection Logic
+### Step 1: Update `.github/workflows/run-integration-tests.yml`
 
-In the `detect_provider()` function (around line 29), add a new condition before the `else` clause that checks for your provider's environment variable:
+#### 1.1 Add Environment Variables
 
-```bash
-detect_provider() {
-  if [ -n "${NEW_PROVIDER_API_KEY:-}" ]; then
-    PROVIDER="newprovider"
-    CONTAINER_NAME="llama-stack-newprovider"
-    INFERENCE_MODEL="${NEW_PROVIDER_MODEL:-model-name}"
-    PROVIDER_MODEL="newprovider/$INFERENCE_MODEL"
-    NEW_PROVIDER_REGION="${NEW_PROVIDER_REGION:-us-east-1}"
-    echo "Using New Provider with model: $PROVIDER_MODEL"
-  elif [ -n "${VERTEX_AI_PROJECT:-}" ]; then
-    # ... existing vertex code ...
-  else
-    # ... existing vllm code ...
-  fi
-}
-```
+**Location:** `.github/workflows/run-integration-tests.yml`, in the `jobs.test.env` section (around line 48)
 
-**Key points:**
-- Check for a unique environment variable that indicates your provider should be used
-- Set `PROVIDER` to a lowercase identifier (used in matrix strategy)
-- Set `CONTAINER_NAME` to a unique container name
-- Set `PROVIDER_MODEL` to the format expected by llama-stack (typically `provider-name/model-name`)
-- Define any provider-specific configuration variables
-
-#### 1.2 Add Provider-Specific Verification Function (if needed)
-
-If your provider requires credential verification, add a function similar to `verify_gcp_credentials()`:
-
-```bash
-# Verify credentials for New Provider
-verify_newprovider_credentials() {
-  if [ -z "${NEW_PROVIDER_API_KEY:-}" ]; then
-    echo "Error: NEW_PROVIDER_API_KEY environment variable not set"
-    echo "Please set: export NEW_PROVIDER_API_KEY=your-api-key"
-    exit 1
-  fi
-}
-```
-
-#### 1.3 Add Provider Case to `prepare_container_env()`
-
-In the `prepare_container_env()` function (around line 80), add a new case:
-
-```bash
-prepare_container_env() {
-  case "$PROVIDER" in
-    newprovider)
-      verify_newprovider_credentials  # if needed
-      ENV_ARGS="-e NEW_PROVIDER_API_KEY=\"$NEW_PROVIDER_API_KEY\" -e NEW_PROVIDER_REGION=\"$NEW_PROVIDER_REGION\" -e INFERENCE_MODEL=\"$INFERENCE_MODEL\""
-      SECRET_ARGS=""  # or add secret handling if needed
-      ;;
-    vertex)
-      # ... existing vertex code ...
-      ;;
-    vllm)
-      # ... existing vllm code ...
-      ;;
-  esac
-}
-```
-
-**Key points:**
-- Add all environment variables your provider needs
-- If using podman secrets (like Vertex AI), set up `SECRET_ARGS` accordingly
-- If no secrets needed, set `SECRET_ARGS=""`
-
-#### 1.4 Add Provider Case to `export_provider_env()`
-
-In the `export_provider_env()` function (around line 98), add a new case:
-
-```bash
-export_provider_env() {
-  case "$PROVIDER" in
-    newprovider)
-      export NEW_PROVIDER_API_KEY NEW_PROVIDER_REGION
-      ;;
-    vertex)
-      # ... existing vertex code ...
-      ;;
-    vllm)
-      # ... existing vllm code ...
-      ;;
-  esac
-}
-```
-
-**Key points:**
-- Export all environment variables that the test script needs
-- These variables will be available to `tests/run_integration_tests.sh`
-
-### Step 2: Update `tests/run_integration_tests.sh`
-
-In the `run_integration_tests()` function (around line 56), add a new condition in the provider/model selection logic:
-
-```bash
-# Determine provider and model based on environment variables
-if [ -n "${PROVIDER_MODEL:-}" ]; then
-    # Use provider model from environment (set by live test scripts)
-    TEXT_MODEL="$PROVIDER_MODEL"
-    echo "Using provider model: $TEXT_MODEL"
-elif [ -n "${NEW_PROVIDER_API_KEY:-}" ]; then
-    # Use New Provider
-    TEXT_MODEL="${NEW_PROVIDER_MODEL:-newprovider/model-name}"
-    echo "Using New Provider with API key"
-    echo "Using model: $TEXT_MODEL"
-elif [ -n "${VERTEX_AI_PROJECT:-}" ]; then
-    # ... existing vertex code ...
-else
-    # ... existing vllm code ...
-fi
-```
-
-**Key points:**
-- Check for the same environment variable used in `detect_provider()`
-- Set `TEXT_MODEL` to the format expected by llama-stack client
-- The format is typically `provider-name/model-name` (e.g., `newprovider/claude-3`)
-
-### Step 3: Update `.github/workflows/redhat-distro-container.yml`
-
-#### 3.1 Add Environment Variables
-
-In the `jobs.test.env` section (around line 45), add your provider's environment variables:
+Add your provider's environment variables to the job-level `env` section:
 
 ```yaml
 env:
   INFERENCE_MODEL: Qwen/Qwen3-0.6B
   EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
   VLLM_URL: http://localhost:8000/v1
-  # ... existing variables ...
+  LLAMA_STACK_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.llama_stack_commit_sha || 'main' }}
+  VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
+  VERTEX_AI_LOCATION: 'us-central1'
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  # Add your provider's environment variables here:
   NEW_PROVIDER_API_KEY: ${{ secrets.NEW_PROVIDER_API_KEY }}
   NEW_PROVIDER_REGION: ${{ secrets.NEW_PROVIDER_REGION != '' && secrets.NEW_PROVIDER_REGION || 'us-east-1' }}
 ```
 
-#### 3.2 Add Matrix Entry
+**Key points:**
+- Add all environment variables your provider needs
+- Use GitHub secrets for sensitive values (API keys, tokens, etc.)
+- Provide default values where appropriate
 
-In the `strategy.matrix.include` section (around line 57), add a new entry:
+#### 1.2 Add Matrix Entry
+
+**Location:** `.github/workflows/run-integration-tests.yml`, in the `strategy.matrix.include` section (around line 62)
+
+Add a new matrix entry with your provider identifier and model:
 
 ```yaml
 strategy:
   fail-fast: false
   matrix:
     include:
-      - provider: vllm
+      - provider: vllm-inference
         platform: linux/amd64
-      - provider: vertex
+        inference_model: Qwen/Qwen3-0.6B
+      - provider: vertexai
         platform: linux/amd64
+        inference_model: google/gemini-2.0-flash
+      # Add your provider entry here:
       - provider: newprovider
         platform: linux/amd64
+        inference_model: your-model-name
 ```
 
-#### 3.3 Add Provider-Specific Test Steps
+**Key points:**
+- `provider` must be a lowercase identifier matching your provider name
+- `platform` should be `linux/amd64` (unless you need a different architecture)
+- `inference_model` should be the base model name (without provider prefix - the prefix is added automatically)
 
-After the existing provider steps (around line 166), add your provider's test steps. Follow this pattern:
+#### 1.3 Add Provider-Specific Setup Steps
+
+**Location:** `.github/workflows/run-integration-tests.yml`, after the existing provider steps (around line 125)
+
+Add provider-specific steps before the "Integration tests" step. **Most providers are remote services and don't need containers** (like Vertex AI). Only add container setup if your provider requires a local sidecar service (vLLM is the exception).
+
+**Standard Pattern: Remote Service (Default - like Vertex AI)**
 
 ```yaml
-# New Provider steps
-- name: New Provider secrets not configured
-  if: github.event_name != 'workflow_dispatch' && matrix.provider == 'newprovider' && env.NEW_PROVIDER_API_KEY == ''
-  run: echo "New Provider secrets not configured; skipping New Provider live tests."
-
-- name: Authenticate to New Provider (if needed)
+# New Provider authentication and setup
+- name: Authenticate to New Provider
   if: github.event_name != 'workflow_dispatch' && matrix.provider == 'newprovider' && env.NEW_PROVIDER_API_KEY != ''
-  run: |
-    # Add authentication steps here
-    # Example: configure API credentials, set up access tokens, etc.
+  uses: your-auth-action@v1  # or use a custom authentication step
+  with:
+    api_key: ${{ env.NEW_PROVIDER_API_KEY }}
+    region: ${{ env.NEW_PROVIDER_REGION }}
 
-- name: Start Llama Stack container (New Provider)
+- name: Configure New Provider
   if: github.event_name != 'workflow_dispatch' && matrix.provider == 'newprovider' && env.NEW_PROVIDER_API_KEY != ''
   shell: bash
   run: |
-    docker run -d --net=host -p 8321:8321 \
-      -e NEW_PROVIDER_API_KEY="${{ env.NEW_PROVIDER_API_KEY }}" \
-      -e NEW_PROVIDER_REGION="${{ env.NEW_PROVIDER_REGION }}" \
-      -e INFERENCE_MODEL="${INFERENCE_MODEL}" \
-      --name llama-stack-newprovider \
-      "${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
-    echo "Waiting for New Provider-backed Llama Stack..."
-    for i in {1..60}; do
-      curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null | grep -q '"status":"OK"' && break
-      if [ "$i" -eq 60 ]; then
-        docker logs llama-stack-newprovider || true
-        docker rm -f llama-stack-newprovider || true
-        exit 1
-      fi
-      sleep 1
-    done
-
-- name: Integration tests (New Provider)
-  if: github.event_name != 'workflow_dispatch' && matrix.provider == 'newprovider' && env.NEW_PROVIDER_API_KEY != ''
-  id: integration-tests-newprovider
-  env:
-    NEW_PROVIDER_API_KEY: ${{ env.NEW_PROVIDER_API_KEY }}
-    NEW_PROVIDER_REGION: ${{ env.NEW_PROVIDER_REGION }}
-  shell: bash
-  run: ./tests/run_integration_tests.sh
+    # Add any configuration steps here
+    # Example: set up API endpoints, configure regions, etc.
 ```
 
 **Key points:**
 - Always check `github.event_name != 'workflow_dispatch'` to skip tests for manual builds
-- Check `matrix.provider == 'newprovider'` to only run for your provider
-- Check for required secrets/environment variables
-- Use a unique container name (e.g., `llama-stack-newprovider`)
-- Pass all required environment variables to the container
-- Wait for health check before running tests
-- Export environment variables needed by the test script
+- Always check `matrix.provider == 'newprovider'` to only run for your provider
+- Always check for required secrets/environment variables
+- **No container needed** - tests connect directly to the remote provider API
+- **No smoke tests needed** - same logic applies to all providers
+- **No cleanup needed** - no containers to clean up
 
-#### 3.4 Update Cleanup Step
+**Exception: Local Sidecar Service (vLLM only)**
 
-In the `cleanup` step (around line 204), add your container name:
+If your provider requires a local sidecar service container (like vLLM), you'll need to:
+1. Start the provider service container
+2. Optionally start a Llama Stack container (if needed)
+3. Run smoke tests (if needed)
+4. Add containers to cleanup step
+
+See the vLLM implementation (`.github/workflows/run-integration-tests.yml` lines 115-123) as a reference, but **this is the exception, not the rule**.
+
+#### 1.4 Verify Integration Tests Step
+
+**Location:** `.github/workflows/run-integration-tests.yml`, the "Integration tests" step (around line 137)
+
+The integration tests step is already provider-agnostic and uses the matrix to set `INFERENCE_MODEL`:
 
 ```yaml
-- name: cleanup
-  if: always()
+- name: Integration tests
+  if: github.event_name != 'workflow_dispatch'
+  env:
+    INFERENCE_MODEL: ${{ matrix.provider }}/${{ matrix.inference_model }}
+  id: integration-tests
   shell: bash
   run: |
-    docker rm -f vllm llama-stack llama-stack-vertex llama-stack-newprovider >/dev/null 2>&1 || true
+    echo "Running integration tests for ${{ matrix.provider }} with model ${{ matrix.inference_model }}"
+    ./tests/run_integration_tests.sh
 ```
 
-#### 3.5 Update Log Gathering (if needed)
+**No changes needed** - this step automatically works for all providers in the matrix. The `INFERENCE_MODEL` is constructed as `{provider}/{model}` (e.g., `newprovider/your-model-name`).
 
-In the `Gather logs` step (around line 172), add your container logs:
+**Note:** The cleanup and log gathering steps are already configured for vLLM containers. **Most providers don't need containers**, so no changes are needed to these steps. Only update them if your provider requires a local sidecar service (exception case).
 
-```yaml
-docker logs llama-stack-newprovider > "$TARGET_DIR/llama-stack-newprovider.log" 2>&1 || true
-```
-
-### Step 4: Update `distribution/run.yaml`
+### Step 2: Update `distribution/run.yaml`
 
 Ensure that your provider is configured in the Llama Stack distribution configuration. Check `distribution/run.yaml` and verify that:
 
@@ -348,7 +245,7 @@ providers:
     # ... other provider-specific settings
 ```
 
-### Step 5: Update Documentation
+### Step 3: Update Documentation
 
 1. **Update this file (`docs/live-tests-guide.md`)**:
    - Add your provider to the "Supported Providers" section
@@ -359,7 +256,7 @@ providers:
    - Document any provider-specific prerequisites
    - Add examples of how to use your provider
 
-### Step 6: Add Required GitHub Secrets
+### Step 4: Add Required GitHub Secrets
 
 For CI/CD to work, add the following secrets in your GitHub repository settings:
 
@@ -371,13 +268,20 @@ For CI/CD to work, add the following secrets in your GitHub repository settings:
 2. Click "New repository secret"
 3. Add each required secret
 
-### Step 7: Test Your Implementation
+### Step 5: Test Your Implementation
 
 1. **Local Testing:**
    ```bash
+   # Set provider-specific environment variables
    export NEW_PROVIDER_API_KEY=your-key
    export NEW_PROVIDER_REGION=us-east-1
-   ./scripts/run-live-tests-local.sh
+
+   # Set INFERENCE_MODEL with full provider prefix
+   export INFERENCE_MODEL="newprovider/your-model-name"
+   export EMBEDDING_MODEL="ibm-granite/granite-embedding-125m-english"
+
+   # Run tests directly
+   ./tests/run_integration_tests.sh
    ```
 
 2. **CI Testing:**
@@ -387,16 +291,62 @@ For CI/CD to work, add the following secrets in your GitHub repository settings:
 
 ### Common Patterns
 
-- **No Authentication Required**: Skip authentication steps, only check for configuration variables
+- **Remote Service (Standard Pattern)**: Like Vertex AI - authenticate, configure, run tests directly
+  - Example: Vertex AI (`.github/workflows/run-integration-tests.yml` lines 126-135)
+  - No container startup needed
+  - No smoke tests needed (same logic as other providers)
+  - No cleanup needed (no containers)
+  - **This is the standard pattern for most providers**
+
+- **Local Sidecar Service (Exception - vLLM only)**: Like vLLM - requires a local inference server running as a sidecar
+  - Example: vLLM (`.github/workflows/run-integration-tests.yml` lines 115-123)
+  - **This is an exception** - vLLM needs a local inference server container
+  - Start provider service container first
+  - Run smoke tests before integration tests
+  - Clean up containers in cleanup step
+  - **Only use this pattern if your provider requires a local sidecar service**
+
 - **API Key Authentication**: Store key in GitHub secrets, pass as environment variable
+  - Add to `jobs.test.env` section
+  - Check in step conditions: `env.NEW_PROVIDER_API_KEY != ''`
+
 - **OAuth/Workload Identity**: Follow the Vertex AI pattern with authentication actions
-- **Container Required**: If your provider needs a separate container (like vLLM), add a setup step similar to the VLLM action
-- **Smoke Tests**: If your provider should run smoke tests, add a step similar to the vLLM smoke test step
+  - Use `google-github-actions/auth@v3` or similar
+  - Set up Cloud SDK or equivalent
+  - Use `permissions: id-token: write` in job
 
-### Example: Complete Provider Addition
+- **No Authentication Required**: Skip authentication steps, only check for configuration variables
 
-For a complete example, see how `vertex` provider was added:
-- Provider detection: `scripts/run-live-tests-local.sh` lines 30-36
-- Container setup: `scripts/run-live-tests-local.sh` lines 82-86
-- Test script integration: `tests/run_integration_tests.sh` lines 61-65
-- Workflow matrix: `.github/workflows/redhat-distro-container.yml` lines 60, 124-170
+### Reference Examples
+
+**Vertex AI Provider (Standard Pattern - Remote Service):**
+- Matrix entry: `.github/workflows/run-integration-tests.yml` lines 66-68
+- Authentication: `.github/workflows/run-integration-tests.yml` lines 126-135
+- No container needed (remote GCP service)
+- **Use this as the template for most new providers**
+
+**vLLM Provider (Exception - Local Sidecar):**
+- Matrix entry: `.github/workflows/run-integration-tests.yml` lines 63-65
+- Service setup: `.github/workflows/run-integration-tests.yml` lines 115-117
+- Container and smoke tests: `.github/workflows/run-integration-tests.yml` lines 119-123
+- **Only reference this if your provider requires a local sidecar service**
+
+### Important Notes for Code Agents
+
+1. **Test Script is Provider-Agnostic**: The `tests/run_integration_tests.sh` script does NOT need any changes. It simply uses the `INFERENCE_MODEL` environment variable which is set by the workflow.
+
+2. **Matrix Format**: The `inference_model` in the matrix should be the base model name. The workflow automatically constructs `{provider}/{model}` format.
+
+3. **Conditional Steps**: All provider-specific steps must check:
+   - `github.event_name != 'workflow_dispatch'` (skip for manual builds)
+   - `matrix.provider == 'your-provider'` (only for your provider)
+   - Required secrets/environment variables are set
+
+4. **Integration Tests Step**: The integration tests step (line 137) is shared and works for all providers - no changes needed.
+
+5. **Containers are the Exception**: Most providers are remote services and don't need containers. Only vLLM requires a local sidecar container. **Do not add container setup steps unless your provider specifically requires a local sidecar service.**
+
+6. **File Locations**:
+   - Workflow: `.github/workflows/run-integration-tests.yml`
+   - Test script: `tests/run_integration_tests.sh` (no changes needed)
+   - Distribution config: `distribution/run.yaml` (verify provider is configured)
