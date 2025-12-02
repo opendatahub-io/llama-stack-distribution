@@ -116,6 +116,18 @@ jobs:
         if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
         uses: ./.github/actions/setup-vllm
 
+      - name: Start Llama Stack
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        uses: ./.github/actions/setup-llama-stack
+        with:
+          image_name: ${{ env.IMAGE_NAME }}
+          image_tag: ${{ env.IMAGE_TAG }}
+          inference_model: ${{ env.INFERENCE_MODEL }}
+          embedding_model: ${{ env.EMBEDDING_MODEL }}
+          vllm_url: ${{ env.VLLM_URL }}
+          vertex_ai_project: ${{ env.VERTEX_AI_PROJECT }}
+          vertex_ai_location: ${{ env.VERTEX_AI_LOCATION }}
+
       - name: Start and smoke test LLS distro image (vLLM)
         if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
         id: smoke-test

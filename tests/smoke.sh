@@ -2,36 +2,24 @@
 
 set -uo pipefail
 
-function start_and_wait_for_llama_stack_container {
-  # Start llama stack
-  docker run \
-    -d \
-    --pull=never \
-    --net=host \
-    -p 8321:8321 \
-    --env INFERENCE_MODEL="$INFERENCE_MODEL" \
-    --env EMBEDDING_MODEL="$EMBEDDING_MODEL" \
-    --env VLLM_URL="$VLLM_URL" \
-    --env TRUSTYAI_LMEVAL_USE_K8S=False \
-    --name llama-stack \
-    "$IMAGE_NAME:$GITHUB_SHA"
-  echo "Started Llama Stack container..."
+# Verify that Llama Stack container is running
+function verify_llama_stack_container {
+  if ! docker ps --format '{{.Names}}' | grep -q '^llama-stack$'; then
+    echo "Error: llama-stack container is not running"
+    echo "Expected container 'llama-stack' to be started by setup-llama-stack action"
+    exit 1
+  fi
 
-  # Wait for llama stack to be ready by doing a health check
-  echo "Waiting for Llama Stack server..."
-  for i in {1..60}; do
-    echo "Attempt $i to connect to Llama Stack..."
-    resp=$(curl -fsS http://127.0.0.1:8321/v1/health)
-    if [ "$resp" == '{"status":"OK"}' ]; then
-      echo "Llama Stack server is up!"
-      return
-    fi
-    sleep 1
-  done
-  echo "Llama Stack server failed to start :("
-  echo "Container logs:"
-  docker logs llama-stack || true
-  exit 1
+  # Verify health endpoint is responding
+  resp=$(curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null)
+  if [ "$resp" != '{"status":"OK"}' ]; then
+    echo "Error: Llama Stack health check failed"
+    echo "Response: $resp"
+    echo "Container logs:"
+    docker logs llama-stack || true
+    exit 1
+  fi
+  echo "Llama Stack container is running and healthy"
 }
 
 function test_model_list {
@@ -70,7 +58,7 @@ function test_model_openai_inference {
 
 main() {
   echo "===> Starting smoke test..."
-  start_and_wait_for_llama_stack_container
+  verify_llama_stack_container
   if ! test_model_list; then
     echo "Model list test failed :("
     exit 1

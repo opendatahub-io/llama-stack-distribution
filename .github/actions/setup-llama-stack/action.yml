@@ -1,0 +1,92 @@
+name: Setup Llama Stack
+description: Start Llama Stack container and wait for it to be ready
+inputs:
+  image_name:
+    description: 'Container image name'
+    required: true
+  image_tag:
+    description: 'Container image tag'
+    required: true
+  inference_model:
+    description: 'Inference model name'
+    required: true
+  embedding_model:
+    description: 'Embedding model name'
+    required: true
+  vllm_url:
+    description: 'VLLM URL (for vLLM provider)'
+    required: false
+    default: ''
+  vertex_ai_project:
+    description: 'Vertex AI project ID (for Vertex AI provider)'
+    required: false
+    default: ''
+  vertex_ai_location:
+    description: 'Vertex AI location (for Vertex AI provider)'
+    required: false
+    default: 'us-central1'
+runs:
+  using: "composite"
+  steps:
+    - name: Start Llama Stack container
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.image_name }}
+        IMAGE_TAG: ${{ inputs.image_tag }}
+        INFERENCE_MODEL: ${{ inputs.inference_model }}
+        EMBEDDING_MODEL: ${{ inputs.embedding_model }}
+        VLLM_URL: ${{ inputs.vllm_url }}
+        VERTEX_AI_PROJECT: ${{ inputs.vertex_ai_project }}
+        VERTEX_AI_LOCATION: ${{ inputs.vertex_ai_location }}
+      run: |
+        # Start llama stack container
+        # Build docker run command with conditional environment variables
+        DOCKER_ENV_ARGS=(
+          --env INFERENCE_MODEL="$INFERENCE_MODEL"
+          --env EMBEDDING_MODEL="$EMBEDDING_MODEL"
+          --env TRUSTYAI_LMEVAL_USE_K8S=False
+        )
+
+        # Add VLLM_URL only if defined and non-empty
+        if [ -n "$VLLM_URL" ]; then
+          DOCKER_ENV_ARGS+=(--env VLLM_URL="$VLLM_URL")
+        fi
+
+        # Add VERTEX_AI_PROJECT only if defined and non-empty
+        if [ -n "$VERTEX_AI_PROJECT" ]; then
+          DOCKER_ENV_ARGS+=(--env VERTEX_AI_PROJECT="$VERTEX_AI_PROJECT")
+        fi
+
+        # Add VERTEX_AI_LOCATION only if defined and non-empty
+        if [ -n "$VERTEX_AI_LOCATION" ]; then
+          DOCKER_ENV_ARGS+=(--env VERTEX_AI_LOCATION="$VERTEX_AI_LOCATION")
+        fi
+
+        docker run \
+          -d \
+          --pull=never \
+          --net=host \
+          -p 8321:8321 \
+          "${DOCKER_ENV_ARGS[@]}" \
+          --name llama-stack \
+          "$IMAGE_NAME:$IMAGE_TAG"
+        echo "Started Llama Stack container..."
+
+    - name: Wait for Llama Stack to be ready
+      shell: bash
+      run: |
+        # Wait for llama stack to be ready by doing a health check
+        echo "Waiting for Llama Stack server..."
+        for i in {1..60}; do
+          echo "Attempt $i to connect to Llama Stack..."
+          resp=$(curl -fsS http://127.0.0.1:8321/v1/health)
+          if [ "$resp" == '{"status":"OK"}' ]; then
+            echo "Llama Stack server is up!"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Llama Stack server failed to start :("
+        echo "Container logs:"
+        docker logs llama-stack || true
+        exit 1
