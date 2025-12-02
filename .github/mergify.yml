@@ -4,7 +4,6 @@ pull_request_rules:
     Automatic merge of PRs to main
   conditions:
     - "#approved-reviews-by>=2"
-    - "#review-requested=0"
     - "#changes-requested-reviews-by=0"
     - or:
       - base=main
@@ -44,8 +43,8 @@ pull_request_rules:
 
 - name: ping author on conflicts and add 'needs-rebase' label
   conditions:
-      - conflict
-      - -closed
+    - conflict
+    - -closed
   actions:
     label:
       add:
@@ -58,8 +57,8 @@ pull_request_rules:
 
 - name: remove 'needs-rebase' label when conflict is resolved
   conditions:
-      - -conflict
-      - -closed
+    - -conflict
+    - -closed
   actions:
     label:
       remove:
