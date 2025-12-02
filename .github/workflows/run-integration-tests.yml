@@ -46,12 +46,9 @@ jobs:
       id-token: write
       contents: read
     env:
-      INFERENCE_MODEL: Qwen/Qwen3-0.6B
-      EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
-      VLLM_URL: http://localhost:8000/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.llama_stack_commit_sha || 'main' }}
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
-      VERTEX_AI_LOCATION: 'us-central1'
+      VERTEX_AI_LOCATION: us-central1
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
     strategy:
       # fail-fast: false ensures both provider tests run independently
@@ -63,9 +60,17 @@ jobs:
           - provider: vllm-inference
             platform: linux/amd64
             inference_model: Qwen/Qwen3-0.6B
+            embedding_model: ibm-granite/granite-embedding-125m-english
+            vllm_url: http://localhost:8000/v1
+            # Vertex AI project and location are not used for vLLM
+            vertex_ai_project: ''
+            vertex_ai_location: ''
           - provider: vertexai
             platform: linux/amd64
             inference_model: google/gemini-2.0-flash
+            embedding_model: ibm-granite/granite-embedding-125m-english
+            # VLLM URL is not used for Vertex AI
+            vllm_url: ''
 
     steps:
       - name: Checkout repository
@@ -117,16 +122,16 @@ jobs:
         uses: ./.github/actions/setup-vllm
 
       - name: Start Llama Stack
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: github.event_name != 'workflow_dispatch'
         uses: ./.github/actions/setup-llama-stack
         with:
           image_name: ${{ env.IMAGE_NAME }}
           image_tag: ${{ env.IMAGE_TAG }}
-          inference_model: ${{ env.INFERENCE_MODEL }}
-          embedding_model: ${{ env.EMBEDDING_MODEL }}
-          vllm_url: ${{ env.VLLM_URL }}
-          vertex_ai_project: ${{ env.VERTEX_AI_PROJECT }}
-          vertex_ai_location: ${{ env.VERTEX_AI_LOCATION }}
+          inference_model: ${{ matrix.inference_model }}
+          embedding_model: ${{ matrix.embedding_model }}
+          vllm_url: ${{ matrix.vllm_url }}
+          vertex_ai_project: ${{ matrix.vertex_ai_project }}
+          vertex_ai_location: ${{ matrix.vertex_ai_location }}
 
       - name: Start and smoke test LLS distro image (vLLM)
         if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'

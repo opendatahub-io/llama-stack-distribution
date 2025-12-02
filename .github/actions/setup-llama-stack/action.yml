@@ -78,15 +78,18 @@ runs:
         # Wait for llama stack to be ready by doing a health check
         echo "Waiting for Llama Stack server..."
         for i in {1..60}; do
-          echo "Attempt $i to connect to Llama Stack..."
-          resp=$(curl -fsS http://127.0.0.1:8321/v1/health)
-          if [ "$resp" == '{"status":"OK"}' ]; then
-            echo "Llama Stack server is up!"
-            exit 0
+          echo "Attempt $i/60 to connect to Llama Stack..."
+          if resp=$(curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null); then
+            if [ "$resp" == '{"status":"OK"}' ]; then
+              echo "Llama Stack server is up!"
+              exit 0
+            fi
+          else
+            echo "Connection failed, retrying in 1 second..."
           fi
           sleep 1
         done
-        echo "Llama Stack server failed to start :("
+        echo "Llama Stack server failed to start after 60 attempts :("
         echo "Container logs:"
         docker logs llama-stack || true
         exit 1
