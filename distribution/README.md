@@ -4,18 +4,19 @@
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with the Open Data Hub version of Llama Stack version [0.3.0rc3+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.3.0rc3+rhai0)
+The image is currently shipping with the Open Data Hub version of Llama Stack version [4ac3141](https://github.com/opendatahub-io/llama-stack/commit/4ac31416bbea73c1805cc2a9be6d0c8779dd1fc2)
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
 | API | Provider | External? | Enabled by default? | How to enable |
 |-----|----------|-----------|---------------------|---------------|
 | agents | inline::meta-reference | No | ✅ | N/A |
+| batches | inline::reference | No | ✅ | N/A |
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
-| eval | inline::trustyai_ragas | Yes (version 0.4.2) | ❌ | Set the `EMBEDDING_MODEL` environment variable |
-| eval | remote::trustyai_lmeval | Yes (version 0.3.1) | ✅ | N/A |
-| eval | remote::trustyai_ragas | Yes (version 0.4.2) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
+| eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `EMBEDDING_MODEL` environment variable |
+| eval | remote::trustyai_lmeval | Yes (version 0.4.1) | ✅ | N/A |
+| eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
 | inference | inline::sentence-transformers | No | ✅ | N/A |
 | inference | remote::azure | No | ❌ | Set the `AZURE_API_KEY` environment variable |
@@ -24,11 +25,10 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | remote::vertexai | No | ❌ | Set the `VERTEX_AI_PROJECT` environment variable |
 | inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
-| safety | remote::trustyai_fms | Yes (version 0.2.3) | ✅ | N/A |
+| safety | remote::trustyai_fms | Yes (version 0.3.0) | ✅ | N/A |
 | scoring | inline::basic | No | ✅ | N/A |
 | scoring | inline::braintrust | No | ✅ | N/A |
 | scoring | inline::llm-as-judge | No | ✅ | N/A |
-| telemetry | inline::meta-reference | No | ✅ | N/A |
 | tool_runtime | inline::rag-runtime | No | ✅ | N/A |
 | tool_runtime | remote::brave-search | No | ✅ | N/A |
 | tool_runtime | remote::model-context-protocol | No | ✅ | N/A |
