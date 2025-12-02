@@ -121,10 +121,6 @@ jobs:
         shell: bash
         run: ./tests/run_integration_tests.sh
 
-      - name: Vertex secrets not configured
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && (env.VERTEX_AI_PROJECT == '' || env.GCP_WORKLOAD_IDENTITY_PROVIDER == '')
-        run: echo "Vertex secrets not configured; skipping Vertex live tests."
-
       - name: Authenticate to Google Cloud
         if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         uses: google-github-actions/auth@v2
