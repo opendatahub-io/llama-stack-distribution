@@ -4,7 +4,7 @@
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with the Open Data Hub version of Llama Stack version [4ac3141](https://github.com/opendatahub-io/llama-stack/commit/4ac31416bbea73c1805cc2a9be6d0c8779dd1fc2)
+The image is currently shipping with the Open Data Hub version of Llama Stack version [e9b0d44](https://github.com/opendatahub-io/llama-stack/commit/e9b0d442cae1c734dcfaa8ec72e7e7b0a2ebe9a5)
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
@@ -25,7 +25,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | remote::vertexai | No | ❌ | Set the `VERTEX_AI_PROJECT` environment variable |
 | inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
-| safety | remote::trustyai_fms | Yes (version 0.3.0) | ✅ | N/A |
+| safety | remote::trustyai_fms | Yes (version 0.3.1) | ✅ | N/A |
 | scoring | inline::basic | No | ✅ | N/A |
 | scoring | inline::braintrust | No | ✅ | N/A |
 | scoring | inline::llm-as-judge | No | ✅ | N/A |
