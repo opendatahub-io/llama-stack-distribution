@@ -40,6 +40,8 @@ env:
   IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
 
 jobs:
+  # Test job runs integration tests for both vLLM and Vertex AI providers using matrix strategy
+  # Uses fail-fast: false so both providers run independently - failure in one doesn't cancel the other
   test:
     runs-on: ubuntu-latest
     env:
@@ -52,8 +54,13 @@ jobs:
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       IMAGE_TAG: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && format('source-{0}-{1}', github.event.inputs.llama_stack_commit_sha || 'main', github.sha) || github.sha }}
     strategy:
+      # fail-fast: false ensures both provider tests run independently
+      # If vLLM tests fail, Vertex AI tests still run (and vice versa)
+      # This provides better visibility into which provider has issues
       fail-fast: false
       matrix:
+        # Matrix strategy runs tests for both providers in parallel
+        # Each matrix entry gets its own job with provider-specific steps
         include:
           - provider: vllm
             platform: linux/amd64
@@ -121,6 +128,21 @@ jobs:
         shell: bash
         run: ./tests/run_integration_tests.sh
 
+      # Vertex AI provider steps - only run when secrets are configured
+      # Note: Subsequent steps have conditional checks, so they'll automatically skip if secrets are missing
+      - name: Validate Vertex AI configuration
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex'
+        shell: bash
+        run: |
+          if [ -z "${{ env.VERTEX_AI_PROJECT }}" ] || [ -z "${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ]; then
+            echo "⚠️ Vertex AI secrets not configured. Vertex AI test steps will be skipped."
+            echo "To enable Vertex AI tests, configure these repository secrets:"
+            echo "  - VERTEX_AI_PROJECT: Your GCP project ID"
+            echo "  - GCP_WORKLOAD_IDENTITY_PROVIDER: OIDC workload identity provider"
+          else
+            echo "✅ Vertex AI secrets configured. Proceeding with Vertex AI tests."
+          fi
+
       - name: Authenticate to Google Cloud
         if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         uses: google-github-actions/auth@v2
@@ -141,6 +163,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         shell: bash
         run: |
+          echo "Starting Llama Stack container with Vertex AI provider..."
           docker run -d --net=host -p 8321:8321 \
             -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
             -e VERTEX_AI_PROJECT="${{ env.VERTEX_AI_PROJECT }}" \
@@ -148,7 +171,10 @@ jobs:
             -e GOOGLE_APPLICATION_CREDENTIALS="" \
             --name llama-stack-vertex \
             "${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
-          echo "Waiting for Vertex-backed Llama Stack..."
+          
+          # Health check: wait up to 60 seconds for server to be ready
+          # This ensures the container is fully started before running tests
+          echo "Waiting for Vertex-backed Llama Stack to be ready..."
           for i in {1..60}; do
             curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null | grep -q '"status":"OK"' && break
             if [ "$i" -eq 60 ]; then
@@ -203,6 +229,9 @@ jobs:
         run: |
           docker rm -f vllm llama-stack llama-stack-vertex >/dev/null 2>&1 || true
 
+  # Publish job runs only after all test matrix jobs succeed
+  # Separated from test job to ensure images are only published when all providers pass
+  # This prevents publishing broken images if one provider fails while another succeeds
   publish:
     needs: test
     if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)

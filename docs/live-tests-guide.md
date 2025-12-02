@@ -230,8 +230,8 @@ In the `jobs.test.env` section (around line 45), add your provider's environment
 ```yaml
 env:
   INFERENCE_MODEL: Qwen/Qwen3-0.6B
-  EMBEDDING_MODEL: granite-embedding-125m
-  VLLM_URL: http://localhost:8000
+  EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
+  VLLM_URL: http://localhost:8000/v1
   # ... existing variables ...
   NEW_PROVIDER_API_KEY: ${{ secrets.NEW_PROVIDER_API_KEY }}
   NEW_PROVIDER_REGION: ${{ secrets.NEW_PROVIDER_REGION != '' && secrets.NEW_PROVIDER_REGION || 'us-east-1' }}
