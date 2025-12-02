@@ -40,66 +40,25 @@ env:
   IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
 
 jobs:
-  check-vertex-recordings:
-    name: Check for Vertex AI recordings
-    runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_dispatch'
-    outputs:
-      vertex_recordings_exist: ${{ steps.detect-vertex.outputs.vertex_recordings_exist }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-
-      - name: Detect Vertex AI recordings
-        id: detect-vertex
-        shell: bash
-        run: |
-          set -euo pipefail
-          WORK_DIR="/tmp/llama-stack-integration-tests"
-          source scripts/extract-llama-stack-info.sh
-
-          vertex_recordings_exist=false
-
-          if [ ! -d "$WORK_DIR" ]; then
-            git clone "$LLAMA_STACK_REPO" "$WORK_DIR"
-          fi
-
-          cd "$WORK_DIR"
-          git fetch origin
-          git checkout "v$LLAMA_STACK_VERSION" || git checkout "$LLAMA_STACK_VERSION"
-
-          RECORDINGS_DIR="$WORK_DIR/tests/integration/recordings"
-          if [ -d "$RECORDINGS_DIR" ]; then
-            # Check if any recordings exist (recordings don't have provider-specific names)
-            # If recordings exist, assume vertex tests can run
-            RECORDING_COUNT=$(find "$RECORDINGS_DIR" -type f -name "*.json" 2>/dev/null | wc -l || echo "0")
-            if [ "$RECORDING_COUNT" -gt 0 ]; then
-              echo "Found $RECORDING_COUNT recording(s) in $RECORDINGS_DIR"
-              vertex_recordings_exist=true
-            else
-              echo "No recordings found in $RECORDINGS_DIR"
-            fi
-          else
-            echo "Recordings directory not found at $RECORDINGS_DIR"
-          fi
-
-          echo "vertex_recordings_exist=$vertex_recordings_exist" >> "$GITHUB_OUTPUT"
-          if [ "$vertex_recordings_exist" != "true" ]; then
-            echo "No recordings detected; Vertex AI tests will be skipped." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-  build-test-push:
-    needs:
-      - check-vertex-recordings
+  test:
     runs-on: ubuntu-latest
     env:
       INFERENCE_MODEL: Qwen/Qwen3-0.6B
       EMBEDDING_MODEL: granite-embedding-125m
-      VLLM_URL: http://localhost:8000/v1
+      VLLM_URL: http://localhost:8000
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
+      VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
+      VERTEX_AI_LOCATION: ${{ secrets.VERTEX_AI_LOCATION != '' && secrets.VERTEX_AI_LOCATION || 'us-central1' }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      IMAGE_TAG: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && format('source-{0}-{1}', github.event.inputs.llama_stack_commit_sha || 'main', github.sha) || github.sha }}
     strategy:
+      fail-fast: false
       matrix:
-        platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
+        include:
+          - provider: vllm
+            platform: linux/amd64
+          - provider: vertex
+            platform: linux/amd64
 
     steps:
       - name: Checkout repository
@@ -129,7 +88,6 @@ jobs:
           python3 -m venv .venv
           source .venv/bin/activate
           pip install --no-cache -e .
-          # now remove the install line from the Containerfile
           cd -
           python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
@@ -142,91 +100,153 @@ jobs:
           file: distribution/Containerfile
           platforms: ${{ matrix.platform }}
           push: false
-          tags: ${{ env.IMAGE_NAME }}:${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
-          load: true  # needed to load for smoke test
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          load: true  # needed to load for smoke/integration tests
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Setup vllm for image test
-        if: github.event_name != 'workflow_dispatch'
-        id: vllm
+      - name: Start VLLM
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm'
         uses: ./.github/actions/setup-vllm
 
-      - name: Start and smoke test LLS distro image
-        if: github.event_name != 'workflow_dispatch'
+      - name: Start and smoke test LLS distro image (vLLM)
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm'
         id: smoke-test
         shell: bash
         run: ./tests/smoke.sh
 
       - name: Integration tests (vLLM)
-        if: github.event_name != 'workflow_dispatch'
-        id: integration-tests
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm'
+        id: integration-tests-vllm
         shell: bash
         run: ./tests/run_integration_tests.sh
 
-      - name: Integration tests (Vertex AI)
-        if: github.event_name != 'workflow_dispatch' && needs.check-vertex-recordings.outputs.vertex_recordings_exist == 'true'
-        id: integration-tests-vertex
-        env:
-          # Use dummy values when using recordings - actual API calls won't be made
-          VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT || 'dummy-project' }}
-          VERTEX_AI_LOCATION: ${{ secrets.VERTEX_AI_LOCATION || 'us-central1' }}
-          # Don't set LLAMA_STACK_TEST_INFERENCE_MODE - this will use recordings
+      - name: Vertex secrets not configured
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && (env.VERTEX_AI_PROJECT == '' || env.GCP_WORKLOAD_IDENTITY_PROVIDER == '')
+        run: echo "Vertex secrets not configured; skipping Vertex live tests."
+
+      - name: Authenticate to Google Cloud
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Set up Cloud SDK
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure gcloud
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        run: |
+          gcloud config set project "${{ env.VERTEX_AI_PROJECT }}"
+          gcloud config set compute/region "${{ env.VERTEX_AI_LOCATION }}"
+
+      - name: Start Llama Stack container (Vertex)
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         shell: bash
         run: |
-          # Explicitly unset live mode to ensure recordings are used
-          unset LLAMA_STACK_TEST_INFERENCE_MODE
-          echo "Running Vertex AI tests with recordings (no live API calls)"
-          ./tests/run_integration_tests.sh
+          docker run -d --net=host -p 8321:8321 \
+            -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
+            -e VERTEX_AI_PROJECT="${{ env.VERTEX_AI_PROJECT }}" \
+            -e VERTEX_AI_LOCATION="${{ env.VERTEX_AI_LOCATION }}" \
+            -e GOOGLE_APPLICATION_CREDENTIALS="" \
+            --name llama-stack-vertex \
+            "${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+          echo "Waiting for Vertex-backed Llama Stack..."
+          for i in {1..60}; do
+            curl -fsS http://127.0.0.1:8321/v1/health 2>/dev/null | grep -q '"status":"OK"' && break
+            if [ "$i" -eq 60 ]; then
+              docker logs llama-stack-vertex || true
+              docker rm -f llama-stack-vertex || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Integration tests (Vertex)
+        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertex' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        id: integration-tests-vertex
+        shell: bash
+        run: ./tests/run_integration_tests.sh
 
       - name: Gather logs and debugging information
-        if: always()
+        if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
-          # Create logs directory
-          mkdir -p logs
+          TARGET_DIR="logs/${{ matrix.provider }}"
+          mkdir -p "$TARGET_DIR"
 
-          docker logs llama-stack > logs/llama-stack.log 2>&1 || echo "Failed to get llama-stack logs" > logs/llama-stack.log
-          docker logs vllm > logs/vllm.log 2>&1 || echo "Failed to get vllm logs" > logs/vllm.log
+          docker logs llama-stack > "$TARGET_DIR/llama-stack.log" 2>&1 || true
+          docker logs vllm > "$TARGET_DIR/vllm.log" 2>&1 || true
+          docker logs llama-stack-vertex > "$TARGET_DIR/llama-stack-vertex.log" 2>&1 || true
 
-          # Gather system information
-          echo "=== System information ==="
           {
-            echo "Disk usage:"
-            df -h
-            echo "Memory usage:"
-            free -h
-            echo "Docker images:"
-            docker images
-            echo "Docker containers:"
-            docker ps -a
-          } > logs/system-info.log 2>&1
+            echo "Disk usage:" && df -h
+            echo "Memory usage:" && free -h
+            echo "Docker images:" && docker images
+            echo "Docker containers:" && docker ps -a
+          } > "$TARGET_DIR/system-info.log" 2>&1
 
-          # Gather integration test logs if they exist
-          echo "=== Integration test artifacts ==="
           if [ -d "/tmp/llama-stack-integration-tests" ]; then
             find /tmp/llama-stack-integration-tests -name "*.log" -o -name "pytest.log" -o -name "*.out" 2>/dev/null | while read -r file; do
-              cp "$file" "logs/$(basename "$file")" || true
+              cp "$file" "$TARGET_DIR/$(basename "$file")" || true
             done
           fi
 
       - name: Upload logs as artifacts
-        if: always()
+        if: always() && github.event_name != 'workflow_dispatch'
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: ci-logs-${{ github.sha }}
-          path: logs/
+          name: ci-logs-${{ matrix.provider }}-${{ github.sha }}
+          path: logs/${{ matrix.provider }}/
           retention-days: 7
 
       - name: cleanup
         if: always()
         shell: bash
         run: |
-          docker rm -f vllm llama-stack
+          docker rm -f vllm llama-stack llama-stack-vertex >/dev/null 2>&1 || true
+
+  publish:
+    needs: test
+    if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+    runs-on: ubuntu-latest
+    env:
+      LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
+      IMAGE_TAG: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && format('source-{0}-{1}', github.event.inputs.llama_stack_commit_sha || 'main', github.sha) || github.sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7.1.4
+        with:
+          python-version: 3.12
+          version: 0.7.6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Generate Containerfile to build an image from an arbitrary llama-stack commit (workflow_dispatch/schedule)
+        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
+        env:
+          LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
+        run: |
+          tmp_build_dir=$(mktemp -d)
+          git clone --filter=blob:none --no-checkout https://github.com/llamastack/llama-stack.git "$tmp_build_dir"
+          cd "$tmp_build_dir"
+          git checkout "$LLAMA_STACK_VERSION"
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --no-cache -e .
+          cd -
+          python3 distribution/build.py
+          sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
       - name: Log in to Quay.io
-        id: login
-        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -234,13 +254,11 @@ jobs:
           password: ${{ secrets.QUAY_PASSWORD }}
 
       - name: Publish image to Quay.io
-        id: publish
-        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: distribution/Containerfile
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64
           push: true
           tags: ${{ github.event_name == 'workflow_dispatch' && format('{0}:source-{1}-{2}', env.IMAGE_NAME, env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}:{1}{2}', env.IMAGE_NAME, github.sha, github.ref == 'refs/heads/main' && format(',{0}:latest', env.IMAGE_NAME) || (startsWith(github.ref, 'refs/heads/rhoai-v') && format(',{0}:{1}-latest', env.IMAGE_NAME, github.ref_name)) || '') }}
           cache-from: type=gha
@@ -250,8 +268,8 @@ jobs:
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         run: |
           echo "✅ Custom container image built successfully!"
-          echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "📦 Image: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
           echo "🔗 Llama Stack commit: ${{ env.LLAMA_STACK_COMMIT_SHA }}"
           echo ""
           echo "You can pull this image using:"
-          echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"

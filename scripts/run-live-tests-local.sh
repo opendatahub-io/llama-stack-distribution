@@ -1,6 +1,5 @@
 #!/bin/bash
-# Run live tests and update recordings in this repository
-# Auto-detects provider from environment variables
+# Run live integration tests (Vertex AI preferred) against the current tree.
 # Usage: VERTEX_AI_PROJECT=your-project ./scripts/run-live-tests-local.sh
 
 set -euo pipefail
@@ -10,156 +9,10 @@ set -euo pipefail
 # shellcheck disable=SC2034
 REGISTRY="quay.io"
 IMAGE_BASE="quay.io/opendatahub/llama-stack"
-RECORDINGS_DIR="tests/integration/recordings"
 WORK_DIR="/tmp/llama-stack-integration-tests"
-SOURCE_RECORDINGS="$WORK_DIR/tests/integration/recordings"
-# Temporary directory for this run's recordings only
-RUN_RECORDINGS_DIR=""
-
-# Set inference mode to live by default
-# can be set to record to generate recordings, or record-if-missing to generate recordings only if they don't exist
+# Force live inference mode; other inference modes are disabled.
 LLAMA_STACK_TEST_INFERENCE_MODE="${LLAMA_STACK_TEST_INFERENCE_MODE:-live}"
-
-# Check if in record mode
-is_record_mode() {
-  [ "$LLAMA_STACK_TEST_INFERENCE_MODE" = "record" ] || [ "$LLAMA_STACK_TEST_INFERENCE_MODE" = "record-if-missing" ]
-}
-
-# Check if in replay mode
-is_replay_mode() {
-  [ "$LLAMA_STACK_TEST_INFERENCE_MODE" = "replay" ]
-}
-
-# Validate recordings exist when in replay mode
-validate_replay_recordings() {
-  if is_replay_mode; then
-    if [ ! -d "$RECORDINGS_DIR" ]; then
-      echo "Error: Recordings directory not found: $RECORDINGS_DIR"
-      echo "collect recordings first or run live mode"
-      exit 1
-    fi
-
-    # Check if there are any recording JSON files
-    RECORDING_FILES=$(find "$RECORDINGS_DIR" -type f -name "*.json" 2>/dev/null || true)
-    if [ -z "$RECORDING_FILES" ]; then
-      echo "Error: No recording files found in $RECORDINGS_DIR"
-      echo "collect recordings first or run live mode"
-      exit 1
-    fi
-
-    RECORDING_COUNT=$(echo "$RECORDING_FILES" | grep -c . || echo "0")
-    echo "Found $RECORDING_COUNT recording file(s) for replay mode"
-  fi
-}
-
 echo "LLAMA_STACK_TEST_INFERENCE_MODE: $LLAMA_STACK_TEST_INFERENCE_MODE"
-
-# Validate recordings exist if in replay mode (before starting any containers)
-validate_replay_recordings
-
-# Setup recordings collection: create temp dir and clear existing recordings
-setup_recordings_collection() {
-  RUN_RECORDINGS_DIR=$(mktemp -d -t llama-stack-recordings-XXXXXX)
-  echo "Created temporary recordings directory: $RUN_RECORDINGS_DIR"
-
-  # Clear existing recordings directory to ensure we only collect new recordings
-  if [ -d "$SOURCE_RECORDINGS" ]; then
-    echo "Clearing existing recordings directory to collect only new recordings..."
-    rm -rf "$SOURCE_RECORDINGS"
-  fi
-  mkdir -p "$SOURCE_RECORDINGS"
-}
-
-# Collect recordings from this run to temporary directory
-collect_recordings() {
-  # Copy recordings from this run to the temporary directory
-  # Since we cleared the directory before running tests, all files here are from this run
-  if [ ! -d "$SOURCE_RECORDINGS" ]; then
-    echo "Error: Recordings directory not found: $SOURCE_RECORDINGS"
-    echo "No recordings were generated during the test run."
-    podman rm -f "$CONTAINER_NAME" >/dev/null
-    exit 1
-  fi
-
-  echo "Collecting recordings from this run to temporary directory..."
-  # Preserve directory structure when copying
-  RECORDING_FILES=$(find "$SOURCE_RECORDINGS" -type f -name "*.json" 2>/dev/null || true)
-
-  if [ -z "$RECORDING_FILES" ]; then
-    echo "Error: No recording files found in $SOURCE_RECORDINGS"
-    echo "No recordings were generated during the test run."
-    podman rm -f "$CONTAINER_NAME" >/dev/null
-    exit 1
-  fi
-
-  echo "$RECORDING_FILES" | while IFS= read -r file; do
-    [ -n "$file" ] && [ -f "$file" ] && {
-      relative_path="${file#"$SOURCE_RECORDINGS"/}"
-      relative_path="${relative_path#/}"
-      mkdir -p "$RUN_RECORDINGS_DIR/$(dirname "$relative_path")"
-      cp "$file" "$RUN_RECORDINGS_DIR/$relative_path"
-    }
-  done
-
-  RECORDING_COUNT=$(echo "$RECORDING_FILES" | grep -c . || echo "0")
-  echo "Collected $RECORDING_COUNT recording file(s) from this run"
-}
-
-# Function to update recordings from container to repository
-update_recordings() {
-  # Use the temporary directory for this run's recordings
-  local source_dir="$RUN_RECORDINGS_DIR"
-
-  # Check if recordings were generated
-  [ ! -d "$source_dir" ] && { echo "No recordings found"; podman rm -f "$CONTAINER_NAME"; exit 1; }
-
-  # Find all recording JSON files (flexible approach - no provider-specific filtering)
-  RECORDING_FILES=$(find "$source_dir" -type f -name "*.json" 2>/dev/null || true)
-
-  [ -z "$RECORDING_FILES" ] && { echo "No recordings found"; podman rm -f "$CONTAINER_NAME"; exit 1; }
-
-  RECORDING_COUNT=$(echo "$RECORDING_FILES" | grep -c . || echo "0")
-  echo "Found $RECORDING_COUNT recording file(s) from this run"
-
-  # Copy all recordings to this repository (preserving directory structure)
-  echo "Updating recordings in $RECORDINGS_DIR..."
-  mkdir -p "$RECORDINGS_DIR"
-  echo "$RECORDING_FILES" | while IFS= read -r file; do
-    [ -n "$file" ] && [ -f "$file" ] && {
-      relative_path="${file#"$source_dir"/}"
-      # Remove leading slash if present
-      relative_path="${relative_path#/}"
-      mkdir -p "$RECORDINGS_DIR/$(dirname "$relative_path")"
-      cp "$file" "$RECORDINGS_DIR/$relative_path"
-    }
-  done
-  echo "Recordings copied to $RECORDINGS_DIR"
-
-  # Normalize recordings to reduce git diff noise
-  # Use the normalization script from the cloned llama-stack repository
-  # The script searches for recordings relative to its location, so we create a temporary
-  # symlink in our local repo so it can find our local recordings
-  NORMALIZE_SCRIPT="$WORK_DIR/scripts/normalize_recordings.py"
-  if [ -f "$NORMALIZE_SCRIPT" ]; then
-    echo "Normalizing recordings..."
-    # Create temporary symlink so the script can find our local tests/ directory
-    TEMP_NORMALIZE_LINK="scripts/normalize_recordings.py"
-    ln -sf "$NORMALIZE_SCRIPT" "$TEMP_NORMALIZE_LINK"
-    python3 "$TEMP_NORMALIZE_LINK" || echo "Warning: Normalization script failed, continuing anyway..."
-    rm -f "$TEMP_NORMALIZE_LINK"
-  else
-    echo "Warning: Normalization script not found at $NORMALIZE_SCRIPT"
-  fi
-  echo "Recordings updated in $RECORDINGS_DIR"
-}
-
-# Cleanup temporary recordings directory
-cleanup_recordings() {
-  if [ -n "$RUN_RECORDINGS_DIR" ] && [ -d "$RUN_RECORDINGS_DIR" ]; then
-    rm -rf "$RUN_RECORDINGS_DIR"
-    echo "Cleaned up temporary recordings directory"
-  fi
-}
 
 # Generate image tag from git SHA or timestamp
 generate_image_tag() {
@@ -277,7 +130,7 @@ prepare_container_env
 # Start Llama Stack container
 echo "Starting Llama Stack container with $PROVIDER provider..."
 podman rm -f "$CONTAINER_NAME" 2>/dev/null || true
-eval "podman run -d --net=host -p 8321:8321 $SECRET_ARGS $ENV_ARGS --name $CONTAINER_NAME $IMAGE_NAME" >/dev/null 2>&1
+eval "podman run -d --net=host -p 8321:8321 $SECRET_ARGS $ENV_ARGS -e LLAMA_STACK_TEST_INFERENCE_MODE=\"record\" --name $CONTAINER_NAME $IMAGE_NAME" >/dev/null 2>&1
 
 # Wait for server to be ready
 echo "Waiting for server..."
@@ -287,11 +140,14 @@ for i in {1..60}; do
   sleep 1
 done
 
+sleep 10000
+
 # Export environment variables for test script
 export_provider_env
 export INFERENCE_MODEL
 export LLAMA_STACK_TEST_INFERENCE_MODE
 export PROVIDER_MODEL
+export LLAMA_STACK_TEST_RECORDING_DIR="$WORK_DIR/tests/integration/recordings/new_recordings"
 
 # Set skip tests (same as in run_integration_tests.sh)
 # TODO: enable these when we have a stable version of llama-stack client and server versions are aligned
@@ -299,23 +155,9 @@ RC2_SKIP_TESTS=" or test_openai_completion_logprobs or test_openai_completion_lo
 # TODO: re-enable the 2 chat_completion_non_streaming tests once they contain include max tokens (to prevent them from rambling)
 SKIP_TESTS="test_mcp_tools_in_inference or test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming$RC2_SKIP_TESTS"
 export SKIP_TESTS
-# Set recording directory to WORK_DIR location where tests actually write recordings
-export LLAMA_STACK_TEST_RECORDING_DIR="$SOURCE_RECORDINGS"
-
-# Setup recordings collection if in record mode
-is_record_mode && setup_recordings_collection
-
-# Run integration tests in live mode to generate recordings
+# Run integration tests in live mode
 echo "Running integration tests..."
 ./tests/run_integration_tests.sh
-# ./tests/run_integration_tests.sh || { podman logs "$CONTAINER_NAME"; podman rm -f "$CONTAINER_NAME"; exit 1; }
-
-# Update recordings only if in record mode
-if is_record_mode; then
-  collect_recordings
-  update_recordings
-  cleanup_recordings
-fi
 
 # Cleanup
 podman rm -f "$CONTAINER_NAME" >/dev/null
