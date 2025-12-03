@@ -38,10 +38,8 @@ env:
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  # Matrix strategy runs vLLM and Vertex AI tests in parallel
-  # Deployment happens for vllm-inference entry, vertexai entry waits for it
-  # NOTE: Matrix jobs run on separate runners, so containers aren't shared
-  # For true container sharing, both jobs must run on the same runner (not guaranteed)
+  # Sequential execution: one Llama Stack instance supports both vLLM and Vertex AI
+  # Tests run sequentially: vLLM first, then Vertex AI
   test:
     runs-on: ubuntu-latest
     permissions:
@@ -56,16 +54,6 @@ jobs:
       DEPLOY_INFERENCE_MODEL: Qwen/Qwen3-0.6B
       DEPLOY_EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
       DEPLOY_VLLM_URL: http://localhost:8000/v1
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - provider: vllm-inference
-            inference_model: Qwen/Qwen3-0.6B
-            embedding_model: ibm-granite/granite-embedding-125m-english
-          - provider: vertexai
-            inference_model: google/gemini-2.0-flash
-            embedding_model: ibm-granite/granite-embedding-125m-english
 
     steps:
       - name: Checkout repository
@@ -84,15 +72,15 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       # ============================================
-      # Deployment Section (runs only for vllm-inference)
+      # Deployment Section
       # ============================================
 
       - name: Start VLLM (early, non-blocking)
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: github.event_name != 'workflow_dispatch'
         uses: ./.github/actions/setup-vllm
 
       - name: Generate Containerfile to build an image from an arbitrary llama-stack commit (workflow_dispatch/schedule)
-        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && matrix.provider == 'vllm-inference'
+        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         env:
           LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
         run: |
@@ -108,7 +96,7 @@ jobs:
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
       - name: Build image
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: github.event_name != 'workflow_dispatch'
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
@@ -121,7 +109,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Authenticate to Google Cloud (Vertex)
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         uses: google-github-actions/auth@v3
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
@@ -129,7 +117,7 @@ jobs:
           create_credentials_file: true
 
       - name: Start Llama Stack server
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: github.event_name != 'workflow_dispatch'
         uses: ./.github/actions/setup-llama-stack
         with:
           image_name: ${{ env.IMAGE_NAME }}
@@ -141,7 +129,7 @@ jobs:
           vertex_ai_location: ${{ env.VERTEX_AI_LOCATION }}
 
       - name: Verify deployment
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           echo "Verifying deployed Llama Stack instance..."
@@ -149,40 +137,11 @@ jobs:
           echo "Deployment verified successfully!"
 
       # ============================================
-      # Wait for deployment (for vertexai entry)
-      # ============================================
-
-      - name: Wait for deployment to be ready
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertexai'
-        shell: bash
-        run: |
-          echo "Waiting for Llama Stack deployment to be ready..."
-          for i in {1..60}; do
-            if curl -fsS http://127.0.0.1:8321/v1/health >/dev/null 2>&1; then
-              echo "Deployment is ready!"
-              exit 0
-            fi
-            echo "Waiting... ($i/60)"
-            sleep 2
-          done
-          echo "⚠️ Deployment not ready after 120 seconds"
-          echo "This may happen if matrix jobs run on different runners."
-          exit 1
-
-      - name: Authenticate to Google Cloud (Vertex) for tests
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertexai' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        uses: google-github-actions/auth@v3
-        with:
-          project_id: ${{ env.VERTEX_AI_PROJECT }}
-          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          create_credentials_file: true
-
-      # ============================================
-      # Testing Section (runs in parallel for both providers)
+      # vLLM Testing Section
       # ============================================
 
       - name: Validate vLLM is ready
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           echo "Validating vLLM is ready..."
@@ -199,34 +158,63 @@ jobs:
           exit 1
 
       - name: Start and smoke test LLS distro image (vLLM)
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
-        shell: bash
-        env:
-          INFERENCE_MODEL: ${{ matrix.inference_model }}
-          EMBEDDING_MODEL: ${{ matrix.embedding_model }}
-        run: ./tests/smoke.sh
-
-      - name: Integration tests
         if: github.event_name != 'workflow_dispatch'
         shell: bash
         env:
-          INFERENCE_MODEL: ${{ matrix.provider }}/${{ matrix.inference_model }}
-          EMBEDDING_MODEL: ${{ matrix.embedding_model }}
+          INFERENCE_MODEL: Qwen/Qwen3-0.6B
+          EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
+        run: ./tests/smoke.sh
+
+      - name: Integration tests (vLLM)
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        env:
+          INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
+          EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
         run: |
-          echo "Running integration tests for ${{ matrix.provider }} with model ${{ matrix.inference_model }}"
+          echo "Running integration tests for vLLM with model Qwen/Qwen3-0.6B"
           ./tests/run_integration_tests.sh
 
-      - name: Vertex AI tests skipped
-        if: github.event_name != 'workflow_dispatch' && matrix.provider == 'vertexai' && (env.VERTEX_AI_PROJECT == '' || env.GCP_WORKLOAD_IDENTITY_PROVIDER == '')
-        shell: bash
-        run: |
-          echo "⚠️ Vertex AI secrets not configured; skipping Vertex AI live tests."
-
       - name: Stop vLLM after tests
-        if: always() && github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           docker rm -f vllm >/dev/null 2>&1 || true
+
+      # ============================================
+      # Vertex AI Testing Section
+      # ============================================
+
+      - name: Verify GCP credentials for Vertex AI
+        if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        shell: bash
+        run: |
+          echo "Verifying GCP credentials for Vertex AI..."
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            echo "⚠️ Warning: GOOGLE_APPLICATION_CREDENTIALS not set"
+            exit 1
+          fi
+          if [ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            echo "⚠️ Warning: GCP credentials file not found at $GOOGLE_APPLICATION_CREDENTIALS"
+            exit 1
+          fi
+          echo "✓ GCP credentials verified"
+
+      - name: Integration tests (Vertex AI)
+        if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        shell: bash
+        env:
+          INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
+          EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
+        run: |
+          echo "Running integration tests for Vertex AI with model google/gemini-2.0-flash"
+          ./tests/run_integration_tests.sh
+
+      - name: Vertex AI tests skipped
+        if: github.event_name != 'workflow_dispatch' && (env.VERTEX_AI_PROJECT == '' || env.GCP_WORKLOAD_IDENTITY_PROVIDER == '')
+        shell: bash
+        run: |
+          echo "⚠️ Vertex AI secrets not configured; skipping Vertex AI live tests."
 
       # ============================================
       # Log Collection and Cleanup
@@ -236,7 +224,7 @@ jobs:
         if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
-          TARGET_DIR="logs/${{ matrix.provider }}"
+          TARGET_DIR="logs"
           mkdir -p "$TARGET_DIR"
 
           docker logs llama-stack > "$TARGET_DIR/llama-stack.log" 2>&1 || true
@@ -259,12 +247,12 @@ jobs:
         if: always() && github.event_name != 'workflow_dispatch'
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
-          name: ci-logs-${{ matrix.provider }}-${{ github.sha }}
-          path: logs/${{ matrix.provider }}/
+          name: ci-logs-${{ github.sha }}
+          path: logs/
           retention-days: 7
 
       - name: Cleanup containers
-        if: always() && github.event_name != 'workflow_dispatch' && matrix.provider == 'vllm-inference'
+        if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
           docker rm -f vllm llama-stack >/dev/null 2>&1 || true
