@@ -62,11 +62,24 @@ runs:
           DOCKER_ENV_ARGS+=(--env VERTEX_AI_LOCATION="$VERTEX_AI_LOCATION")
         fi
 
+        # Mount GCP credentials if they exist (for Vertex AI)
+        DOCKER_VOLUME_ARGS=()
+        GCP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"
+        if [ -f "$GCP_CREDENTIALS_FILE" ]; then
+          # Create directory in container and mount credentials
+          DOCKER_VOLUME_ARGS=(
+            -v "$GCP_CREDENTIALS_FILE:/root/.config/gcloud/application_default_credentials.json:ro"
+          )
+          DOCKER_ENV_ARGS+=(--env GOOGLE_APPLICATION_CREDENTIALS="/root/.config/gcloud/application_default_credentials.json")
+          echo "Mounting GCP credentials for Vertex AI support"
+        fi
+
         docker run \
           -d \
           --pull=never \
           --net=host \
           -p 8321:8321 \
+          "${DOCKER_VOLUME_ARGS[@]}" \
           "${DOCKER_ENV_ARGS[@]}" \
           --name llama-stack \
           "$IMAGE_NAME:$IMAGE_TAG"
