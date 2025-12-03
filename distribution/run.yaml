@@ -16,7 +16,7 @@ providers:
   - provider_id: ${env.VLLM_URL:+vllm-inference}
     provider_type: remote::vllm
     config:
-      base_url: ${env.VLLM_URL:=}
+      url: ${env.VLLM_URL:=}
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
@@ -39,7 +39,7 @@ providers:
   - provider_id: ${env.WATSONX_API_KEY:+watsonx}
     provider_type: remote::watsonx
     config:
-      base_url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
+      url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
       api_key: ${env.WATSONX_API_KEY:=}
       project_id: ${env.WATSONX_PROJECT_ID:=}
   - provider_id: ${env.AZURE_API_KEY:+azure}
