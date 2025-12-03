@@ -78,6 +78,16 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       # ============================================
+      # Start vLLM early (non-blocking)
+      # ============================================
+      # Start vLLM container early so it can start up in parallel with image build
+      # We'll validate it's ready before running vLLM tests
+
+      - name: Start VLLM (early, non-blocking)
+        if: github.event_name != 'workflow_dispatch'
+        uses: ./.github/actions/setup-vllm
+
+      # ============================================
       # Deployment Section
       # ============================================
       # Deploy Llama Stack once with both vLLM and Vertex AI support
@@ -124,10 +134,6 @@ jobs:
         if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Start VLLM
-        if: github.event_name != 'workflow_dispatch'
-        uses: ./.github/actions/setup-vllm
-
       - name: Start Llama Stack server
         if: github.event_name != 'workflow_dispatch'
         uses: ./.github/actions/setup-llama-stack
@@ -152,6 +158,23 @@ jobs:
       # vLLM Testing Section
       # ============================================
 
+      - name: Validate vLLM is ready
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          echo "Validating vLLM is ready..."
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then
+              echo "vLLM is ready!"
+              exit 0
+            fi
+            echo "Waiting for vLLM... ($i/60)"
+            sleep 2
+          done
+          echo "vLLM failed to start after 120 seconds"
+          docker logs vllm || true
+          exit 1
+
       - name: Start and smoke test LLS distro image (vLLM)
         if: github.event_name != 'workflow_dispatch'
         id: smoke-test-vllm
@@ -172,9 +195,39 @@ jobs:
           echo "Running integration tests for vLLM with model ${{ env.VLLM_INFERENCE_MODEL }}"
           ./tests/run_integration_tests.sh
 
+      - name: Stop vLLM after tests
+        if: always() && github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          echo "Stopping vLLM container..."
+          docker rm -f vllm >/dev/null 2>&1 || true
+          echo "vLLM stopped"
+
       # ============================================
       # Vertex AI Testing Section
       # ============================================
+
+      - name: Verify GCP credentials for Vertex AI
+        if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+        shell: bash
+        run: |
+          echo "Verifying GCP credentials are accessible..."
+          if [ -f "$HOME/.config/gcloud/application_default_credentials.json" ]; then
+            echo "✓ GCP credentials file exists on runner"
+            echo "Checking if credentials are accessible in container at /run/secrets/gcp-credentials..."
+            if docker exec llama-stack test -f /run/secrets/gcp-credentials 2>/dev/null; then
+              echo "✓ GCP credentials are accessible in container"
+              echo "Verifying GOOGLE_APPLICATION_CREDENTIALS environment variable..."
+              docker exec llama-stack sh -c 'echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"' || true
+            else
+              echo "⚠️ Warning: GCP credentials not found in container at /run/secrets/gcp-credentials"
+              echo "Container logs:"
+              docker logs llama-stack | tail -20 || true
+            fi
+          else
+            echo "⚠️ Warning: GCP credentials file not found on runner"
+            echo "Vertex AI tests may fail"
+          fi
 
       - name: Integration tests (Vertex AI)
         if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
@@ -225,4 +278,7 @@ jobs:
         if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
-          docker rm -f vllm llama-stack >/dev/null 2>&1 || true
+          # vLLM is already stopped after vLLM tests, only clean up llama-stack here
+          docker rm -f llama-stack >/dev/null 2>&1 || true
+          # Also clean up vLLM if it's still running (safety check)
+          docker rm -f vllm >/dev/null 2>&1 || true

@@ -1,12 +1,12 @@
 name: Setup VLLM
-description: Start VLLM
+description: Start VLLM container (non-blocking)
 runs:
   using: "composite"
   steps:
     - name: Start VLLM
       shell: bash
       run: |
-        # Start vllm container
+        # Start vllm container in background (non-blocking)
         docker run -d \
           --name vllm \
           --privileged=true \
@@ -19,10 +19,4 @@ runs:
           --model /root/.cache/Qwen3-0.6B \
           --served-model-name Qwen/Qwen3-0.6B \
           --max-model-len 8192
-
-          # Wait for vllm to be ready
-          echo "Waiting for vllm to be ready..."
-          timeout 900 bash -c 'until curl -fsS http://localhost:8000/health >/dev/null; do
-            echo "Waiting for vllm..."
-            sleep 5
-          done'
+        echo "vLLM container started (starting up in background)..."

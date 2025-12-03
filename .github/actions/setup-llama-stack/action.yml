@@ -63,15 +63,20 @@ runs:
         fi
 
         # Mount GCP credentials if they exist (for Vertex AI)
+        # Mount to /run/secrets/gcp-credentials to match local Podman setup
         DOCKER_VOLUME_ARGS=()
         GCP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"
         if [ -f "$GCP_CREDENTIALS_FILE" ]; then
-          # Create directory in container and mount credentials
+          # Mount credentials file to /run/secrets/gcp-credentials (matching local Podman setup)
           DOCKER_VOLUME_ARGS=(
-            -v "$GCP_CREDENTIALS_FILE:/root/.config/gcloud/application_default_credentials.json:ro"
+            -v "$GCP_CREDENTIALS_FILE:/run/secrets/gcp-credentials:ro"
           )
-          DOCKER_ENV_ARGS+=(--env GOOGLE_APPLICATION_CREDENTIALS="/root/.config/gcloud/application_default_credentials.json")
-          echo "Mounting GCP credentials for Vertex AI support"
+          DOCKER_ENV_ARGS+=(--env GOOGLE_APPLICATION_CREDENTIALS="/run/secrets/gcp-credentials")
+          echo "Mounting GCP credentials to /run/secrets/gcp-credentials for Vertex AI support"
+          echo "Credentials file: $GCP_CREDENTIALS_FILE"
+        else
+          echo "Warning: GCP credentials file not found at $GCP_CREDENTIALS_FILE"
+          echo "Vertex AI authentication may fail"
         fi
 
         docker run \
@@ -84,6 +89,17 @@ runs:
           --name llama-stack \
           "$IMAGE_NAME:$IMAGE_TAG"
         echo "Started Llama Stack container..."
+        
+        # Verify credentials are accessible if mounted
+        if [ -f "$GCP_CREDENTIALS_FILE" ]; then
+          echo "Verifying GCP credentials are accessible in container..."
+          if docker exec llama-stack test -f /run/secrets/gcp-credentials 2>/dev/null; then
+            echo "✓ GCP credentials file is accessible in container at /run/secrets/gcp-credentials"
+          else
+            echo "⚠️ Warning: GCP credentials file not found in container at /run/secrets/gcp-credentials"
+            echo "Container may not be able to authenticate to Vertex AI"
+          fi
+        fi
 
     - name: Wait for Llama Stack to be ready
       shell: bash
