@@ -89,7 +89,7 @@ runs:
           --name llama-stack \
           "$IMAGE_NAME:$IMAGE_TAG"
         echo "Started Llama Stack container..."
-        
+
         # Verify credentials are accessible if mounted
         if [ -f "$GCP_CREDENTIALS_FILE" ]; then
           echo "Verifying GCP credentials are accessible in container..."
