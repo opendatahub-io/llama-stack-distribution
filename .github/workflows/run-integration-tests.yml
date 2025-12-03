@@ -209,21 +209,28 @@ jobs:
         shell: bash
         run: |
           echo "Verifying GCP credentials are accessible..."
-          if [ -f "$HOME/.config/gcloud/application_default_credentials.json" ]; then
-            echo "✓ GCP credentials file exists on runner"
-            echo "Checking if credentials are accessible in container at /run/secrets/gcp-credentials..."
-            if docker exec llama-stack test -f /run/secrets/gcp-credentials 2>/dev/null; then
-              echo "✓ GCP credentials are accessible in container"
-              echo "Verifying GOOGLE_APPLICATION_CREDENTIALS environment variable..."
-              docker exec llama-stack sh -c 'echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"' || true
-            else
-              echo "⚠️ Warning: GCP credentials not found in container at /run/secrets/gcp-credentials"
-              echo "Container logs:"
-              docker logs llama-stack | tail -20 || true
-            fi
+          # Check GOOGLE_APPLICATION_CREDENTIALS env var first (set by google-github-actions/auth)
+          if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            echo "✓ GCP credentials file exists at: $GOOGLE_APPLICATION_CREDENTIALS"
+          elif [ -f "$HOME/.config/gcloud/application_default_credentials.json" ]; then
+            echo "✓ GCP credentials file exists at standard location: $HOME/.config/gcloud/application_default_credentials.json"
           else
-            echo "⚠️ Warning: GCP credentials file not found on runner"
+            echo "⚠️ Warning: GCP credentials file not found"
+            echo "GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-not set}"
+            echo "Standard location: $HOME/.config/gcloud/application_default_credentials.json"
             echo "Vertex AI tests may fail"
+            exit 0  # Don't fail the step, just warn
+          fi
+
+          echo "Checking if credentials are accessible in container at /run/secrets/gcp-credentials..."
+          if docker exec llama-stack test -f /run/secrets/gcp-credentials 2>/dev/null; then
+            echo "✓ GCP credentials are accessible in container"
+            echo "Verifying GOOGLE_APPLICATION_CREDENTIALS environment variable in container..."
+            docker exec llama-stack sh -c 'echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS"' || true
+          else
+            echo "⚠️ Warning: GCP credentials not found in container at /run/secrets/gcp-credentials"
+            echo "Container logs:"
+            docker logs llama-stack | tail -20 || true
           fi
 
       - name: Integration tests (Vertex AI)

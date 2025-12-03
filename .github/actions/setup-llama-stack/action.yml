@@ -64,9 +64,20 @@ runs:
 
         # Mount GCP credentials if they exist (for Vertex AI)
         # Mount to /run/secrets/gcp-credentials to match local Podman setup
+        # Use GOOGLE_APPLICATION_CREDENTIALS env var if set (from google-github-actions/auth with create_credentials_file: true)
+        # Otherwise fall back to standard location
         DOCKER_VOLUME_ARGS=()
-        GCP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"
-        if [ -f "$GCP_CREDENTIALS_FILE" ]; then
+        if [ -n "$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+          # Use the credentials file path from GOOGLE_APPLICATION_CREDENTIALS env var
+          GCP_CREDENTIALS_FILE="$GOOGLE_APPLICATION_CREDENTIALS"
+        elif [ -f "$HOME/.config/gcloud/application_default_credentials.json" ]; then
+          # Fall back to standard location
+          GCP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"
+        else
+          GCP_CREDENTIALS_FILE=""
+        fi
+
+        if [ -n "$GCP_CREDENTIALS_FILE" ] && [ -f "$GCP_CREDENTIALS_FILE" ]; then
           # Mount credentials file to /run/secrets/gcp-credentials (matching local Podman setup)
           DOCKER_VOLUME_ARGS=(
             -v "$GCP_CREDENTIALS_FILE:/run/secrets/gcp-credentials:ro"
@@ -75,7 +86,9 @@ runs:
           echo "Mounting GCP credentials to /run/secrets/gcp-credentials for Vertex AI support"
           echo "Credentials file: $GCP_CREDENTIALS_FILE"
         else
-          echo "Warning: GCP credentials file not found at $GCP_CREDENTIALS_FILE"
+          echo "Warning: GCP credentials file not found"
+          echo "Checked GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-not set}"
+          echo "Checked standard location: $HOME/.config/gcloud/application_default_credentials.json"
           echo "Vertex AI authentication may fail"
         fi
 
@@ -91,7 +104,7 @@ runs:
         echo "Started Llama Stack container..."
 
         # Verify credentials are accessible if mounted
-        if [ -f "$GCP_CREDENTIALS_FILE" ]; then
+        if [ -n "$GCP_CREDENTIALS_FILE" ] && [ -f "$GCP_CREDENTIALS_FILE" ]; then
           echo "Verifying GCP credentials are accessible in container..."
           if docker exec llama-stack test -f /run/secrets/gcp-credentials 2>/dev/null; then
             echo "✓ GCP credentials file is accessible in container at /run/secrets/gcp-credentials"
