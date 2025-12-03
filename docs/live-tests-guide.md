@@ -7,7 +7,7 @@ This guide explains how to run Llama Stack integration tests in live inference m
 - **vllm-inference** – Local VLLM inference server (default)
 - **vertexai** – Google Cloud Vertex AI (when GCP secrets are configured)
 
-In CI, both providers are tested sequentially using a single deployed Llama Stack instance in `.github/workflows/run-integration-tests.yml`.
+In CI, both providers are tested in parallel using a matrix strategy in `.github/workflows/run-integration-tests.yml`. A single Llama Stack instance is deployed (by the vllm-inference matrix entry) and both test suites run in parallel.
 
 ## Prerequisites
 
@@ -70,7 +70,7 @@ export VERTEX_AI_LOCATION="us-central1"
 
 ## CI/CD Workflow
 
-The `.github/workflows/run-integration-tests.yml` workflow runs integration tests for both providers sequentially using a single deployed Llama Stack instance. The `.github/workflows/redhat-distro-container.yml` workflow handles building and publishing images only after tests pass.
+The `.github/workflows/run-integration-tests.yml` workflow runs integration tests for both providers in parallel using a matrix strategy. The `.github/workflows/redhat-distro-container.yml` workflow handles building and publishing images only after tests pass.
 
 ### Triggering
 
@@ -91,25 +91,29 @@ If Vertex AI secrets are not configured, the Vertex AI tests will be skipped wit
 
 ### How it Works
 
-1. **Deployment Phase**:
+1. **Deployment Phase** (vllm-inference matrix entry):
    - Builds the container image once
    - Authenticates to Google Cloud (if Vertex AI secrets are configured)
-   - Starts VLLM container
+   - Starts VLLM container (non-blocking, starts early)
    - Starts Llama Stack container with **both vLLM and Vertex AI support** configured
    - Verifies deployment is ready
 
-2. **Testing Phase** (Sequential):
-   - **vLLM Tests**: Runs smoke tests and integration tests using the deployed Llama Stack instance
-   - **Vertex AI Tests**: Runs integration tests using the same deployed Llama Stack instance (if secrets are configured)
+2. **Testing Phase** (Parallel):
+   - **vLLM Tests** (vllm-inference matrix entry): Validates vLLM is ready, runs smoke tests and integration tests
+   - **Vertex AI Tests** (vertexai matrix entry): Waits for deployment, authenticates to GCP, runs integration tests
+   - Both test suites run in parallel using the matrix strategy
 
 3. **Publish Phase**: The `redhat-distro-container.yml` workflow triggers after tests pass and publishes the image to Quay.io
 
 **Key Architecture:**
-- **Single Deployment**: One Llama Stack instance is deployed with both vLLM and Vertex AI providers configured
-- **Sequential Execution**: Tests run one after another, ensuring both providers use the same deployed instance
-- **Shared Containers**: Since everything runs in a single job, containers are shared between test phases
+- **Single Deployment**: One Llama Stack instance is deployed by the vllm-inference matrix entry with both vLLM and Vertex AI providers configured
+- **Parallel Execution**: Tests run in parallel using a matrix strategy (`fail-fast: false` ensures both run independently)
+- **Optimized Startup**: vLLM starts early (non-blocking) and is validated before tests run
+- **Early Cleanup**: vLLM is stopped immediately after vLLM tests complete
 
 **Important:** Vertex AI is a remote cloud service, so no local container is needed for Vertex AI itself. However, the Llama Stack container is configured to support both vLLM (local) and Vertex AI (remote) providers simultaneously.
+
+**Note:** Matrix jobs run on separate runners by default, so containers aren't shared. The vertexai entry waits for deployment, assuming both jobs run on the same runner (not guaranteed with GitHub-hosted runners).
 
 ## Adding New Providers
 
@@ -215,43 +219,27 @@ If your provider requires a local sidecar service container (like vLLM), you'll 
 
 See the vLLM implementation (`.github/workflows/run-integration-tests.yml` lines 127-129 for VLLM startup, lines 155-162 for smoke tests) as a reference, but **this is the exception, not the rule**.
 
-#### 1.4 Add Provider Testing Section
+#### 1.4 Verify Integration Tests Step
 
-**Location:** `.github/workflows/run-integration-tests.yml`, after the "Vertex AI Testing Section" (around line 175-195)
+**Location:** `.github/workflows/run-integration-tests.yml`, the "Integration tests" step (around line 200)
 
-Add a new testing section for your provider, following the same pattern as the Vertex AI section:
+The integration tests step is already provider-agnostic and uses the matrix to set `INFERENCE_MODEL`:
 
 ```yaml
-# ============================================
-# New Provider Testing Section
-# ============================================
-
-- name: Integration tests (New Provider)
-  if: github.event_name != 'workflow_dispatch' && env.NEW_PROVIDER_API_KEY != ''
-  id: integration-tests-newprovider
+- name: Integration tests
+  if: github.event_name != 'workflow_dispatch'
   shell: bash
   env:
-    INFERENCE_MODEL: newprovider/${{ env.NEWPROVIDER_INFERENCE_MODEL }}
-    EMBEDDING_MODEL: ${{ env.NEWPROVIDER_EMBEDDING_MODEL }}
+    INFERENCE_MODEL: ${{ matrix.provider }}/${{ matrix.inference_model }}
+    EMBEDDING_MODEL: ${{ matrix.embedding_model }}
   run: |
-    echo "Running integration tests for New Provider with model ${{ env.NEWPROVIDER_INFERENCE_MODEL }}"
+    echo "Running integration tests for ${{ matrix.provider }} with model ${{ matrix.inference_model }}"
     ./tests/run_integration_tests.sh
-
-- name: New Provider tests skipped
-  if: github.event_name != 'workflow_dispatch' && env.NEW_PROVIDER_API_KEY == ''
-  shell: bash
-  run: |
-    echo "⚠️ New Provider secrets not configured; skipping New Provider live tests."
-    echo "To enable New Provider tests, configure NEW_PROVIDER_API_KEY secret."
 ```
 
-**Key points:**
-- Follow the exact pattern of the Vertex AI testing section
-- Use `{provider}/{model}` format for `INFERENCE_MODEL` (e.g., `newprovider/your-model-name`)
-- Include a skip message step if secrets are not configured
-- The test script is provider-agnostic and will work automatically
+**No changes needed** - this step automatically works for all providers in the matrix. The `INFERENCE_MODEL` is constructed as `{provider}/{model}` (e.g., `newprovider/your-model-name`).
 
-**Note:** The cleanup and log gathering steps are already configured and will work for all providers. **Most providers don't need containers**, so no changes are needed to these steps. Only update them if your provider requires a local sidecar service (exception case).
+**Note:** The cleanup and log gathering steps are already configured for all providers. **Most providers don't need containers**, so no changes are needed to these steps. Only update them if your provider requires a local sidecar service (exception case).
 
 ### Step 2: Update `distribution/run.yaml`
 
@@ -347,34 +335,37 @@ For CI/CD to work, add the following secrets in your GitHub repository settings:
 ### Reference Examples
 
 **Vertex AI Provider (Standard Pattern - Remote Service):**
-- Test configuration: `.github/workflows/run-integration-tests.yml` lines 61-62 (env variables)
-- Authentication: `.github/workflows/run-integration-tests.yml` lines 116-125 (in deployment section)
-- Testing section: `.github/workflows/run-integration-tests.yml` lines 179-195
+- Matrix entry: `.github/workflows/run-integration-tests.yml` lines 60-63
+- Authentication: `.github/workflows/run-integration-tests.yml` lines 130-133 (in deployment section, vllm-inference entry)
+- Wait step: `.github/workflows/run-integration-tests.yml` lines 150-161 (vertexai entry)
+- Integration tests: `.github/workflows/run-integration-tests.yml` lines 200-207 (shared step)
 - No container needed (remote GCP service)
 - **Use this as the template for most new providers**
 
 **vLLM Provider (Exception - Local Sidecar):**
-- Test configuration: `.github/workflows/run-integration-tests.yml` lines 59-60 (env variables)
-- Service setup: `.github/workflows/run-integration-tests.yml` lines 127-129 (in deployment section)
-- Smoke tests: `.github/workflows/run-integration-tests.yml` lines 155-162
-- Integration tests: `.github/workflows/run-integration-tests.yml` lines 164-173
+- Matrix entry: `.github/workflows/run-integration-tests.yml` lines 57-59
+- Service setup: `.github/workflows/run-integration-tests.yml` lines 86-88 (in deployment section, vllm-inference entry)
+- Validation: `.github/workflows/run-integration-tests.yml` lines 170-181 (vllm-inference entry)
+- Smoke tests: `.github/workflows/run-integration-tests.yml` lines 183-188 (vllm-inference entry)
+- Integration tests: `.github/workflows/run-integration-tests.yml` lines 200-207 (shared step)
 - **Only reference this if your provider requires a local sidecar service**
 
 ### Important Notes for Code Agents
 
 1. **Test Script is Provider-Agnostic**: The `tests/run_integration_tests.sh` script does NOT need any changes. It simply uses the `INFERENCE_MODEL` environment variable which is set by the workflow.
 
-2. **Sequential Execution**: The workflow uses sequential execution (not matrix). Tests run one after another, with vLLM tests first, then Vertex AI, then any additional providers you add.
+2. **Matrix Strategy**: The workflow uses a matrix strategy for parallel execution. Each provider gets its own matrix entry and runs in parallel.
 
-3. **Single Deployment**: One Llama Stack instance is deployed with all providers configured. All tests use this same instance.
+3. **Deployment**: Deployment happens only for the `vllm-inference` matrix entry. Other entries wait for deployment to be ready.
 
-4. **Environment Variables**: Use the pattern `{PROVIDER}_INFERENCE_MODEL` and `{PROVIDER}_EMBEDDING_MODEL` (uppercase) in the `env` section. The model name should be the base name (without provider prefix).
+4. **Matrix Format**: The `inference_model` in the matrix should be the base model name. The workflow automatically constructs `{provider}/{model}` format.
 
 5. **Conditional Steps**: All provider-specific steps must check:
    - `github.event_name != 'workflow_dispatch'` (skip for manual builds)
+   - `matrix.provider == 'your-provider'` (only for your provider)
    - Required secrets/environment variables are set
 
-6. **Integration Tests Step**: Each provider has its own integration tests step in the testing section. The `INFERENCE_MODEL` is constructed as `{provider}/{model}` format (e.g., `newprovider/your-model-name`).
+6. **Integration Tests Step**: The integration tests step (line 200) is shared and works for all providers - no changes needed. The `INFERENCE_MODEL` is constructed as `{provider}/{model}` format.
 
 7. **Containers are the Exception**: Most providers are remote services and don't need containers. Only vLLM requires a local sidecar container. **Do not add container setup steps unless your provider specifically requires a local sidecar service.**
 

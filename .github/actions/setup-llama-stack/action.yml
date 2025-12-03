@@ -103,17 +103,6 @@ runs:
           "$IMAGE_NAME:$IMAGE_TAG"
         echo "Started Llama Stack container..."
 
-        # Verify credentials are accessible if mounted
-        if [ -n "$GCP_CREDENTIALS_FILE" ] && [ -f "$GCP_CREDENTIALS_FILE" ]; then
-          echo "Verifying GCP credentials are accessible in container..."
-          if docker exec llama-stack test -f /run/secrets/gcp-credentials 2>/dev/null; then
-            echo "✓ GCP credentials file is accessible in container at /run/secrets/gcp-credentials"
-          else
-            echo "⚠️ Warning: GCP credentials file not found in container at /run/secrets/gcp-credentials"
-            echo "Container may not be able to authenticate to Vertex AI"
-          fi
-        fi
-
     - name: Wait for Llama Stack to be ready
       shell: bash
       run: |
