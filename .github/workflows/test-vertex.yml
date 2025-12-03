@@ -33,7 +33,7 @@ jobs:
       env:
         VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
       run: |-
-        curl -f -X POST \
+        curl -sSf -X POST \
           -H "Authorization: Bearer $(gcloud auth print-access-token)" \
           -H "Content-Type: application/json" \
           "https://${VERTEX_AI_LOCATION}-aiplatform.googleapis.com/v1beta1/projects/${VERTEX_AI_PROJECT}/locations/${VERTEX_AI_LOCATION}/endpoints/openapi/chat/completions" \
