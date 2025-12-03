@@ -129,10 +129,7 @@ jobs:
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-
-      - name: Set up Cloud SDK (Vertex)
-        if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        uses: google-github-actions/setup-gcloud@v2
+          create_credentials_file: true
 
       - name: Start Llama Stack server
         if: github.event_name != 'workflow_dispatch'
