@@ -23,6 +23,12 @@ jobs:
           project_id: 'aaet-dev'
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
+    - id: 'gcloud'
+      name: 'gcloud'
+      run: |-
+        gcloud auth list
+        gcloud config list
+
     - name: 'inference'
       env:
         VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
