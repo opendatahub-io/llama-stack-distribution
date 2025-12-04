@@ -141,12 +141,21 @@ jobs:
           VLLM_INFERENCE_MODEL: ${{ env.VLLM_INFERENCE_MODEL }}
           VERTEX_AI_INFERENCE_MODEL: ${{ env.VERTEX_AI_INFERENCE_MODEL }}
           EMBEDDING_MODEL: ${{ env.DEPLOY_EMBEDDING_MODEL }}
+          VERTEX_AI_PROJECT: ${{ env.VERTEX_AI_PROJECT }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         run: |
-          # Run smoke tests for a list of models
-          for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
-            echo "Running smoke test for model: $model"
-            INFERENCE_MODEL="$model" ./tests/smoke.sh
-          done
+          # Run smoke tests for models
+          # Always test vLLM model
+          echo "Running smoke test for vLLM model: $VLLM_INFERENCE_MODEL"
+          INFERENCE_MODEL="$VLLM_INFERENCE_MODEL" ./tests/smoke.sh
+
+          # Only test Vertex AI model if credentials are configured
+          if [ -n "$VERTEX_AI_PROJECT" ] && [ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]; then
+            echo "Running smoke test for Vertex AI model: $VERTEX_AI_INFERENCE_MODEL"
+            INFERENCE_MODEL="$VERTEX_AI_INFERENCE_MODEL" ./tests/smoke.sh
+          else
+            echo "Skipping Vertex AI smoke test (credentials not configured)"
+          fi
 
       - name: Integration tests (vLLM)
         if: github.event_name != 'workflow_dispatch'
