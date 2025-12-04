@@ -51,7 +51,9 @@ jobs:
       VERTEX_AI_LOCATION: us-central1
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       # Deployment configuration - Llama Stack will support both vLLM and Vertex AI
-      DEPLOY_INFERENCE_MODEL: Qwen/Qwen3-0.6B
+      # Model names include provider prefixes for consistency
+      VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
+      VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
       DEPLOY_EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
       DEPLOY_VLLM_URL: http://localhost:8000/v1
 
@@ -123,7 +125,7 @@ jobs:
         with:
           image_name: ${{ env.IMAGE_NAME }}
           image_tag: ${{ env.IMAGE_TAG }}
-          inference_model: ${{ env.DEPLOY_INFERENCE_MODEL }}
+          inference_model: ${{ env.VLLM_INFERENCE_MODEL }}
           embedding_model: ${{ env.DEPLOY_EMBEDDING_MODEL }}
           vllm_url: ${{ env.DEPLOY_VLLM_URL }}
           vertex_ai_project: ${{ env.VERTEX_AI_PROJECT }}
@@ -141,74 +143,49 @@ jobs:
       # vLLM Testing Section
       # ============================================
 
-      - name: Validate vLLM is ready
-        if: github.event_name != 'workflow_dispatch'
-        shell: bash
-        run: |
-          echo "Validating vLLM is ready..."
-          for i in {1..60}; do
-            if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then
-              echo "vLLM is ready!"
-              exit 0
-            fi
-            echo "Waiting for vLLM... ($i/60)"
-            sleep 2
-          done
-          echo "vLLM failed to start after 120 seconds"
-          docker logs vllm || true
-          exit 1
-
-      - name: Start and smoke test LLS distro image (vLLM)
+      - name: Start and smoke test LLS distro image
         if: github.event_name != 'workflow_dispatch'
         shell: bash
         env:
-          INFERENCE_MODEL: Qwen/Qwen3-0.6B
-          EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
-        run: ./tests/smoke.sh
+          VLLM_INFERENCE_MODEL: ${{ env.VLLM_INFERENCE_MODEL }}
+          VERTEX_AI_INFERENCE_MODEL: ${{ env.VERTEX_AI_INFERENCE_MODEL }}
+          EMBEDDING_MODEL: ${{ env.DEPLOY_EMBEDDING_MODEL }}
+        run: |
+          # Run smoke tests for a list of models
+          for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
+            echo "Running smoke test for model: $model"
+            INFERENCE_MODEL="$model" ./tests/smoke.sh
+          done
 
       - name: Integration tests (vLLM)
         if: github.event_name != 'workflow_dispatch'
         shell: bash
         env:
-          INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
-          EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
+          INFERENCE_MODEL: ${{ env.VLLM_INFERENCE_MODEL }}
+          EMBEDDING_MODEL: ${{ env.DEPLOY_EMBEDDING_MODEL }}
         run: |
-          echo "Running integration tests for vLLM with model Qwen/Qwen3-0.6B"
+          echo "Running integration tests for vLLM with model ${{ env.VLLM_INFERENCE_MODEL }}"
           ./tests/run_integration_tests.sh
-
       - name: Stop vLLM after tests
         if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
+          # Stop vLLM container to free resources before Vertex AI tests
+          # Vertex AI tests don't require vLLM, so we can clean it up early
           docker rm -f vllm >/dev/null 2>&1 || true
 
       # ============================================
       # Vertex AI Testing Section
       # ============================================
 
-      - name: Verify GCP credentials for Vertex AI
-        if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        shell: bash
-        run: |
-          echo "Verifying GCP credentials for Vertex AI..."
-          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-            echo "⚠️ Warning: GOOGLE_APPLICATION_CREDENTIALS not set"
-            exit 1
-          fi
-          if [ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-            echo "⚠️ Warning: GCP credentials file not found at $GOOGLE_APPLICATION_CREDENTIALS"
-            exit 1
-          fi
-          echo "✓ GCP credentials verified"
-
       - name: Integration tests (Vertex AI)
         if: github.event_name != 'workflow_dispatch' && env.VERTEX_AI_PROJECT != '' && env.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
         shell: bash
         env:
-          INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
-          EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
+          INFERENCE_MODEL: ${{ env.VERTEX_AI_INFERENCE_MODEL }}
+          EMBEDDING_MODEL: ${{ env.DEPLOY_EMBEDDING_MODEL }}
         run: |
-          echo "Running integration tests for Vertex AI with model google/gemini-2.0-flash"
+          echo "Running integration tests for Vertex AI with model ${{ env.VERTEX_AI_INFERENCE_MODEL }}"
           ./tests/run_integration_tests.sh
 
       - name: Vertex AI tests skipped
@@ -229,7 +206,10 @@ jobs:
           mkdir -p "$TARGET_DIR"
 
           docker logs llama-stack > "$TARGET_DIR/llama-stack.log" 2>&1 || true
-          docker logs vllm > "$TARGET_DIR/vllm.log" 2>&1 || true
+          # Check if vLLM container exists before logging (it may have been stopped earlier)
+          if docker ps -a --format '{{.Names}}' | grep -q '^vllm$'; then
+            docker logs vllm > "$TARGET_DIR/vllm.log" 2>&1 || true
+          fi
 
           {
             echo "Disk usage:" && df -h

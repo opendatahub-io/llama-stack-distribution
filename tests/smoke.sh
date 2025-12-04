@@ -3,10 +3,11 @@
 set -uo pipefail
 
 # Verify that Llama Stack container is running
+# Note: This verification is also done in GitHub Actions for redundancy
 function verify_llama_stack_container {
   if ! docker ps --format '{{.Names}}' | grep -q '^llama-stack$'; then
     echo "Error: llama-stack container is not running"
-    echo "Expected container 'llama-stack' to be started by setup-llama-stack action"
+    echo "Expected container 'llama-stack' to be running"
     exit 1
   fi
 
@@ -27,6 +28,7 @@ function test_model_list {
     echo "===> Looking for model $model..."
     resp=$(curl -fsS http://127.0.0.1:8321/v1/models)
     echo "Response: $resp"
+    # Check for the specific model
     if echo "$resp" | grep -q "$model"; then
       echo "Model $model was found :)"
       continue
@@ -43,7 +45,7 @@ function test_model_list {
 
 function test_model_openai_inference {
   echo "===> Attempting to chat with model $INFERENCE_MODEL..."
-  resp=$(curl -fsS http://127.0.0.1:8321/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"vllm-inference/$INFERENCE_MODEL\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
+  resp=$(curl -fsS http://127.0.0.1:8321/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$INFERENCE_MODEL\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
   if echo "$resp" | grep -q "green"; then
     echo "===> Inference is working :)"
     return
