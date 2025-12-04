@@ -14,7 +14,7 @@ RUN uv pip install --upgrade \
     'ibm-cos-sdk==2.14.2'
 RUN uv pip install \
     'datasets>=4.0.0' \
-    'mcp>=1.8.1' \
+    'mcp>=1.23.0' \
     'pymilvus[milvus-lite]>=2.4.10' \
     aiosqlite \
     asyncpg \
