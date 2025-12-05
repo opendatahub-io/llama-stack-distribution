@@ -1,0 +1,47 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG BASE_IMAGE
+ARG LLAMA_STACK_VERSION
+ARG WHEEL_RELEASE_AARCH64
+ARG WHEEL_RELEASE_X86_64
+ARG WHEEL_RELEASE_PACKAGE
+ARG WHEEL_RELEASE_PROJECT_ID
+
+LABEL com.redhat.component="llama-stack-cpu-rhel9-container" \
+      name="llama-stack/cpu-rhel9" \
+      description="Llama Stack ${LLAMA_STACK_VERSION} for CPU on RHEL 9" \
+      summary="Llama Stack for CPU" \
+      maintainer="['managed-open-data-hub@redhat.com']" \
+      io.k8s.display-name="Llama Stack for CPU" \
+      io.k8s.description="Llama Stack ${LLAMA_STACK_VERSION} for CPU on RHEL 9" \
+      io.openshift.expose-services="" \
+      com.redhat.license_terms="https://www.redhat.com/en/about/eulas#RHAIIS" \
+      com.redhat.aiplatform.image="${BASE_IMAGE}" \
+      com.redhat.aiplatform.wheel_release="${WHEEL_RELEASE_AARCH64} ${WHEEL_RELEASE_X86_64}"
+
+RUN --mount=type=secret,id=rhel-ai-private-index-auth/BOT_PAT,target=/run/secrets/gitlab_pat,required=true,uid=${CNB_USER_ID},gid=${CNB_GROUP_ID} \
+    ${APP_ROOT}/lib/tools/install-wheel-release.sh
+
+USER 0
+# install missing RPMs (online, requires subscription)
+# RUN ${APP_ROOT}/lib/tools/fromager-rpm-check.py --check-dnf -y --dnf-clean
+# switch from internal mirrors to public vendor repos
+RUN ${APP_ROOT}/lib/tools/public-repos.sh
+USER ${CNB_USER_ID}:${CNB_GROUP_ID}
+
+# scan for missing RPMs (offline), missing libraries / symbols, and selftest
+# AIPCC-3688: do not scan the container for missing libraries and symbols
+# re-add ${APP_ROOT}/lib/tools/scanlibs.py below once milvus-lite build is fixed
+RUN ${APP_ROOT}/lib/tools/fromager-rpm-check.py --check-rpmdb \
+    && ${APP_ROOT}/lib/tools/selftest.py
+
+# LLama Stack configuration
+RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
+COPY distribution/run.yaml ${APP_ROOT}/run.yaml
+COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
+
+# Download embedding model
+RUN huggingface-cli download ibm-granite/granite-embedding-125m-english
+
+ENTRYPOINT [ "/opt/app-root/entrypoint.sh" ]
