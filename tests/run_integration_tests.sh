@@ -76,7 +76,7 @@ function run_integration_tests() {
     uv pip install llama-stack-client
     uv run pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
-        --text-model=vllm-inference/"$INFERENCE_MODEL" \
+        --text-model="$INFERENCE_MODEL" \
         --embedding-model=sentence-transformers/"$EMBEDDING_MODEL" \
         -k "not ($SKIP_TESTS)"
 }

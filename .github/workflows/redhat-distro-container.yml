@@ -1,20 +1,11 @@
-name: Build, test, and publish Red Hat Distribution Containers
+name: Build and publish Red Hat Distribution Containers
 
 on:
-  pull_request:
-    branches:
-      - main
-      - rhoai-v*
-      - konflux-poc*
+  # Trigger after test workflow completes successfully
+  workflow_run:
+    workflows: ["Run integration tests"]
     types:
-      - opened
-      - synchronize
-    paths:
-      - '.github/actions/setup-vllm/action.yml'
-      - '.github/workflows/redhat-distro-container.yml'
-      - 'distribution/**'
-      - 'tests/**'
-  push:
+      - completed
     branches:
       - main
       - rhoai-v*
@@ -27,12 +18,9 @@ on:
         required: true
         type: string
 
-  # do a nightly test of the `main` branch of llama-stack at 6AM UTC every morning
-  schedule:
-    - cron: '0 6 * * *'
-
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # For workflow_run events, use the head SHA; for workflow_dispatch, use the ref
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -40,26 +28,38 @@ env:
   IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
 
 jobs:
-  build-test-push:
+  # Build and publish job - builds container image and publishes to Quay.io
+  # Only runs if integration tests pass (when triggered by workflow_run) or on manual dispatch
+  build-and-publish:
+    # Only run if:
+    # 1. Triggered by workflow_run AND the test workflow succeeded, OR
+    # 2. Triggered by workflow_dispatch (manual trigger)
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
-      INFERENCE_MODEL: Qwen/Qwen3-0.6B
-      EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
-      VLLM_URL: http://localhost:8000/v1
-      LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
-    strategy:
-      matrix:
-        platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
-
+      # When triggered by workflow_run, use the commit SHA from the test workflow
+      # When triggered by workflow_dispatch, use the input or default to 'main'
+      LLAMA_STACK_COMMIT_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event.inputs.llama_stack_commit_sha || 'main' }}
+      # For workflow_dispatch: use custom format with commit SHA
+      # For workflow_run: use the commit SHA from the test workflow
+      IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', github.event.inputs.llama_stack_commit_sha || 'main', github.sha) || github.event.workflow_run.head_sha || github.sha }}
+      # Image tags will be determined dynamically in the "Determine image tags" step
+      IMAGE_TAGS: ''
     steps:
       - name: Checkout repository
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          # When triggered by workflow_run, checkout the commit that triggered the test workflow
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7.1.4
         with:
           python-version: 3.12
           version: 0.7.6
+          enable-cache: false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -67,8 +67,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - name: Generate Containerfile to build an image from an arbitrary llama-stack commit (workflow_dispatch/schedule)
-        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
+      - name: Generate Containerfile to build an image from an arbitrary llama-stack commit (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
         env:
           LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
         run: |
@@ -79,114 +79,48 @@ jobs:
           python3 -m venv .venv
           source .venv/bin/activate
           pip install --no-cache -e .
-          # now remove the install line from the Containerfile
           cd -
           python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
-      - name: Build image
-        id: build
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          context: .
-          file: distribution/Containerfile
-          platforms: ${{ matrix.platform }}
-          push: false
-          tags: ${{ env.IMAGE_NAME }}:${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
-          load: true  # needed to load for smoke test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Setup vllm for image test
-        if: github.event_name != 'workflow_dispatch'
-        id: vllm
-        uses: ./.github/actions/setup-vllm
-
-      - name: Start and smoke test LLS distro image
-        if: github.event_name != 'workflow_dispatch'
-        id: smoke-test
-        shell: bash
-        run: ./tests/smoke.sh
-
-      - name: Integration tests
-        if: github.event_name != 'workflow_dispatch'
-        id: integration-tests
-        shell: bash
-        run: ./tests/run_integration_tests.sh
-
-      - name: Gather logs and debugging information
-        if: always()
-        shell: bash
-        run: |
-          # Create logs directory
-          mkdir -p logs
-
-          docker logs llama-stack > logs/llama-stack.log 2>&1 || echo "Failed to get llama-stack logs" > logs/llama-stack.log
-          docker logs vllm > logs/vllm.log 2>&1 || echo "Failed to get vllm logs" > logs/vllm.log
-
-          # Gather system information
-          echo "=== System information ==="
-          {
-            echo "Disk usage:"
-            df -h
-            echo "Memory usage:"
-            free -h
-            echo "Docker images:"
-            docker images
-            echo "Docker containers:"
-            docker ps -a
-          } > logs/system-info.log 2>&1
-
-          # Gather integration test logs if they exist
-          echo "=== Integration test artifacts ==="
-          if [ -d "/tmp/llama-stack-integration-tests" ]; then
-            find /tmp/llama-stack-integration-tests -name "*.log" -o -name "pytest.log" -o -name "*.out" 2>/dev/null | while read -r file; do
-              cp "$file" "logs/$(basename "$file")" || true
-            done
-          fi
-
-      - name: Upload logs as artifacts
-        if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
-        with:
-          name: ci-logs-${{ github.sha }}
-          path: logs/
-          retention-days: 7
-
-      - name: cleanup
-        if: always()
-        shell: bash
-        run: |
-          docker rm -f vllm llama-stack
-
       - name: Log in to Quay.io
-        id: login
-        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
+      - name: Determine image tags
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "IMAGE_TAGS=${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}-${{ github.sha }}" >> "$GITHUB_ENV"
+          else
+            TAGS="${{ env.IMAGE_NAME }}:${{ github.sha }}"
+            if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+              TAGS="$TAGS,${{ env.IMAGE_NAME }}:latest"
+            elif [[ "${{ github.ref }}" =~ ^refs/heads/rhoai-v ]]; then
+              TAGS="$TAGS,${{ env.IMAGE_NAME }}:${{ github.ref_name }}-latest"
+            fi
+            echo "IMAGE_TAGS=$TAGS" >> "$GITHUB_ENV"
+          fi
+
       - name: Publish image to Quay.io
-        id: publish
-        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: distribution/Containerfile
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64
           push: true
-          tags: ${{ github.event_name == 'workflow_dispatch' && format('{0}:source-{1}-{2}', env.IMAGE_NAME, env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}:{1}{2}', env.IMAGE_NAME, github.sha, github.ref == 'refs/heads/main' && format(',{0}:latest', env.IMAGE_NAME) || (startsWith(github.ref, 'refs/heads/rhoai-v') && format(',{0}:{1}-latest', env.IMAGE_NAME, github.ref_name)) || '') }}
+          tags: ${{ env.IMAGE_TAGS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Output custom build information
-        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
+        if: github.event_name == 'workflow_dispatch'
         run: |
           echo "✅ Custom container image built successfully!"
-          echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "📦 Image: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
           echo "🔗 Llama Stack commit: ${{ env.LLAMA_STACK_COMMIT_SHA }}"
           echo ""
           echo "You can pull this image using:"
-          echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"

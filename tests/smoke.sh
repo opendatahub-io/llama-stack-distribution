@@ -2,43 +2,12 @@
 
 set -uo pipefail
 
-function start_and_wait_for_llama_stack_container {
-  # Start llama stack
-  docker run \
-    -d \
-    --pull=never \
-    --net=host \
-    -p 8321:8321 \
-    --env INFERENCE_MODEL="$INFERENCE_MODEL" \
-    --env EMBEDDING_MODEL="$EMBEDDING_MODEL" \
-    --env VLLM_URL="$VLLM_URL" \
-    --env TRUSTYAI_LMEVAL_USE_K8S=False \
-    --name llama-stack \
-    "$IMAGE_NAME:$GITHUB_SHA"
-  echo "Started Llama Stack container..."
-
-  # Wait for llama stack to be ready by doing a health check
-  echo "Waiting for Llama Stack server..."
-  for i in {1..60}; do
-    echo "Attempt $i to connect to Llama Stack..."
-    resp=$(curl -fsS http://127.0.0.1:8321/v1/health)
-    if [ "$resp" == '{"status":"OK"}' ]; then
-      echo "Llama Stack server is up!"
-      return
-    fi
-    sleep 1
-  done
-  echo "Llama Stack server failed to start :("
-  echo "Container logs:"
-  docker logs llama-stack || true
-  exit 1
-}
-
 function test_model_list {
   for model in "$INFERENCE_MODEL" "$EMBEDDING_MODEL"; do
     echo "===> Looking for model $model..."
     resp=$(curl -fsS http://127.0.0.1:8321/v1/models)
     echo "Response: $resp"
+    # Check for the specific model
     if echo "$resp" | grep -q "$model"; then
       echo "Model $model was found :)"
       continue
@@ -55,7 +24,7 @@ function test_model_list {
 
 function test_model_openai_inference {
   echo "===> Attempting to chat with model $INFERENCE_MODEL..."
-  resp=$(curl -fsS http://127.0.0.1:8321/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"vllm-inference/$INFERENCE_MODEL\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
+  resp=$(curl -fsS http://127.0.0.1:8321/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$INFERENCE_MODEL\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
   if echo "$resp" | grep -q "green"; then
     echo "===> Inference is working :)"
     return
@@ -70,7 +39,6 @@ function test_model_openai_inference {
 
 main() {
   echo "===> Starting smoke test..."
-  start_and_wait_for_llama_stack_container
   if ! test_model_list; then
     echo "Model list test failed :("
     exit 1
