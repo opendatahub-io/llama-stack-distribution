@@ -18,7 +18,7 @@ LABEL com.redhat.component="llama-stack-cpu-rhel9-container" \
       io.openshift.expose-services="" \
       com.redhat.license_terms="https://www.redhat.com/en/about/eulas#RHAIIS" \
       com.redhat.aiplatform.image="${BASE_IMAGE}" \
-      com.redhat.aiplatform.wheel_release="${WHEEL_RELEASE_AARCH64} ${WHEEL_RELEASE_X86_64}" 
+      com.redhat.aiplatform.wheel_release="${WHEEL_RELEASE_AARCH64} ${WHEEL_RELEASE_X86_64}"
 
 RUN --mount=type=secret,id=rhel-ai-private-index-auth/BOT_PAT,target=/run/secrets/gitlab_pat,required=true,uid=${CNB_USER_ID},gid=${CNB_GROUP_ID} \
     ${APP_ROOT}/lib/tools/install-wheel-release.sh
