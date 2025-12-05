@@ -12,6 +12,8 @@ function start_and_wait_for_llama_stack_container {
     --env INFERENCE_MODEL="$INFERENCE_MODEL" \
     --env EMBEDDING_MODEL="$EMBEDDING_MODEL" \
     --env VLLM_URL="$VLLM_URL" \
+    --env ENABLE_SENTENCE_TRANSFORMERS=True \
+    --env EMBEDDING_PROVIDER=sentence-transformers \
     --env TRUSTYAI_LMEVAL_USE_K8S=False \
     --name llama-stack \
     "$IMAGE_NAME:$GITHUB_SHA"
