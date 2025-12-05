@@ -24,7 +24,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/open-data-hub-tenant/odh-llama-stack-core-poc:{{revision}}
+    value: quay.io/opendatahub/llama-stack:odh-stable
   - name: dockerfile
     value: distribution/Containerfile
   - name: path-context
