@@ -39,8 +39,9 @@ RUN ${APP_ROOT}/lib/tools/fromager-rpm-check.py --check-rpmdb \
 # LLama Stack configuration
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
+COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
 
 # Download embedding model
 RUN huggingface-cli download ibm-granite/granite-embedding-125m-english
 
-ENTRYPOINT ["python3", "-m", "llama_stack.core.server.server", "/opt/app-root/run.yaml"]
+ENTRYPOINT [ "/opt/app-root/entrypoint.sh" ]
