@@ -38,3 +38,4 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | vector_io | inline::faiss | No | ❌ | Set the `ENABLE_FAISS` environment variable |
 | vector_io | inline::milvus | No | ✅ | N/A |
 | vector_io | remote::milvus | No | ❌ | Set the `MILVUS_ENDPOINT` environment variable |
+| vector_io | remote::pgvector | No | ❌ | Set the `ENABLE_PGVECTOR` environment variable |
