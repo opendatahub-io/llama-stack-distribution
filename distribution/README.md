@@ -18,6 +18,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | eval | remote::trustyai_lmeval | Yes (version 0.4.1) | ✅ | N/A |
 | eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
+| files | remote::s3 | No | ❌ | Set the `ENABLE_S3` environment variable |
 | inference | inline::sentence-transformers | No | ✅ | N/A |
 | inference | remote::azure | No | ❌ | Set the `AZURE_API_KEY` environment variable |
 | inference | remote::bedrock | No | ❌ | Set the `AWS_ACCESS_KEY_ID` environment variable |
