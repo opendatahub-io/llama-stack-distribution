@@ -19,12 +19,13 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
 | files | remote::s3 | No | ❌ | Set the `ENABLE_S3` environment variable |
-| inference | inline::sentence-transformers | No | ✅ | N/A |
+| inference | inline::sentence-transformers | No | ❌ | Set the `ENABLE_SENTENCE_TRANSFORMERS` environment variable |
 | inference | remote::azure | No | ❌ | Set the `AZURE_API_KEY` environment variable |
 | inference | remote::bedrock | No | ❌ | Set the `AWS_ACCESS_KEY_ID` environment variable |
 | inference | remote::openai | No | ❌ | Set the `OPENAI_API_KEY` environment variable |
 | inference | remote::vertexai | No | ❌ | Set the `VERTEX_AI_PROJECT` environment variable |
 | inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
+| inference | remote::vllm | No | ❌ | Set the `VLLM_EMBEDDING_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
 | safety | remote::trustyai_fms | Yes (version 0.3.1) | ✅ | N/A |
 | scoring | inline::basic | No | ✅ | N/A |
@@ -37,3 +38,4 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | vector_io | inline::faiss | No | ❌ | Set the `ENABLE_FAISS` environment variable |
 | vector_io | inline::milvus | No | ✅ | N/A |
 | vector_io | remote::milvus | No | ❌ | Set the `MILVUS_ENDPOINT` environment variable |
+| vector_io | remote::pgvector | No | ❌ | Set the `ENABLE_PGVECTOR` environment variable |

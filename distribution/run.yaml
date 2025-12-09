@@ -20,6 +20,13 @@ providers:
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
+  - provider_id: ${env.VLLM_EMBEDDING_URL:+vllm-embedding}
+    provider_type: remote::vllm
+    config:
+      url: ${env.VLLM_EMBEDDING_URL:=}
+      max_tokens: ${env.VLLM_EMBEDDING_MAX_TOKENS:=4096}
+      api_token: ${env.VLLM_EMBEDDING_API_TOKEN:=fake}
+      tls_verify: ${env.VLLM_EMBEDDING_TLS_VERIFY:=true}
   - provider_id: ${env.AWS_ACCESS_KEY_ID:+bedrock}
     provider_type: remote::bedrock
     config:
@@ -33,7 +40,7 @@ providers:
       connect_timeout: ${env.AWS_CONNECT_TIMEOUT:=60}
       read_timeout: ${env.AWS_READ_TIMEOUT:=60}
       session_ttl: ${env.AWS_SESSION_TTL:=3600}
-  - provider_id: sentence-transformers
+  - provider_id: ${env.ENABLE_SENTENCE_TRANSFORMERS:+sentence-transformers}
     provider_type: inline::sentence-transformers
     config: {}
   - provider_id: ${env.WATSONX_API_KEY:+watsonx}
@@ -86,6 +93,17 @@ providers:
       persistence:
         backend: kv_milvus_remote
         namespace: vector_io::milvus_remote
+  - provider_id: ${env.ENABLE_PGVECTOR:+pgvector}
+    provider_type: remote::pgvector
+    config:
+      host: ${env.PGVECTOR_HOST:=localhost}
+      port: ${env.PGVECTOR_PORT:=5432}
+      db: ${env.PGVECTOR_DB:=}
+      user: ${env.PGVECTOR_USER:=}
+      password: ${env.PGVECTOR_PASSWORD:=}
+      persistence:
+        backend: kv_pgvector
+        namespace: vector_io::pgvector
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
@@ -217,6 +235,9 @@ storage:
     kv_milvus_remote:
       type: kv_sqlite
       db_path: /opt/app-root/src/.llama/distributions/rh/milvus_remote_registry.db
+    kv_pgvector:
+      type: kv_sqlite
+      db_path: /opt/app-root/src/.llama/distributions/rh/pgvector_registry.db
     kv_datasetio_huggingface:
       type: kv_sqlite
       db_path: /opt/app-root/src/.llama/distributions/rh/huggingface_datasetio.db
@@ -256,11 +277,10 @@ registered_resources:
     model_id: ${env.INFERENCE_MODEL}
     provider_id: vllm-inference
     model_type: llm
-
   - metadata:
       embedding_dimension: 768
     model_id: granite-embedding-125m
-    provider_id: sentence-transformers
+    provider_id: ${env.EMBEDDING_PROVIDER:=vllm-embedding}
     provider_model_id: ibm-granite/granite-embedding-125m-english
     model_type: embedding
   shields: []
