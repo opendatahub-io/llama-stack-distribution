@@ -285,7 +285,7 @@ For CI/CD to work, add the following secrets in your GitHub repository settings:
 
 2. **CI Testing:**
    - Create a PR with your changes
-   - Verify the new provider matrix job appears in the workflow run
+   - Verify the new provider test step appears in the workflow run
    - Check that tests run successfully (or skip gracefully if secrets aren't configured)
 
 ### Common Patterns

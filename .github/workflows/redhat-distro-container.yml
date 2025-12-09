@@ -59,7 +59,6 @@ jobs:
         with:
           python-version: 3.12
           version: 0.7.6
-          enable-cache: false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -109,6 +108,7 @@ jobs:
         with:
           context: .
           file: distribution/Containerfile
+          # TODO: enable other architectures once all pip packages are available for them
           platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE_TAGS }}
@@ -116,6 +116,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Output custom build information
+        # Only output build info for manual workflow_dispatch triggers
+        # For workflow_run triggers, build info is already available in the triggering workflow
         if: github.event_name == 'workflow_dispatch'
         run: |
           echo "✅ Custom container image built successfully!"

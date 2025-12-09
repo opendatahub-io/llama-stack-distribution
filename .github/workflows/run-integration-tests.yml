@@ -40,8 +40,16 @@ env:
 jobs:
   # Sequential execution: one Llama Stack instance supports both vLLM and Vertex AI
   # Tests run sequentially: vLLM first, then Vertex AI
+  # Note: Provider matrix strategy was removed because GitHub Actions runners are isolated;
+  # containers cannot be shared across matrix jobs. Sequential execution ensures
+  # all tests use the same deployed Llama Stack instance.
+  # Platform matrix is used to test multiple architectures (amd64, arm64) independently.
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: enable linux/arm64 once all pip packages are available for ARM
+        platform: [linux/amd64]
     permissions:
       id-token: write
       contents: read
@@ -66,7 +74,6 @@ jobs:
         with:
           python-version: 3.12
           version: 0.7.6
-          enable-cache: false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -103,7 +110,7 @@ jobs:
         with:
           context: .
           file: distribution/Containerfile
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           push: false
           tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
           load: true
@@ -138,21 +145,19 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         shell: bash
         env:
-          VLLM_INFERENCE_MODEL: ${{ env.VLLM_INFERENCE_MODEL }}
-          VERTEX_AI_INFERENCE_MODEL: ${{ env.VERTEX_AI_INFERENCE_MODEL }}
           EMBEDDING_MODEL: ${{ env.DEPLOY_EMBEDDING_MODEL }}
           VERTEX_AI_PROJECT: ${{ env.VERTEX_AI_PROJECT }}
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         run: |
           # Run smoke tests for models
           # Always test vLLM model
-          echo "Running smoke test for vLLM model: $VLLM_INFERENCE_MODEL"
-          INFERENCE_MODEL="$VLLM_INFERENCE_MODEL" ./tests/smoke.sh
+          echo "Running smoke test for vLLM model: ${{ env.VLLM_INFERENCE_MODEL }}"
+          INFERENCE_MODEL="${{ env.VLLM_INFERENCE_MODEL }}" ./tests/smoke.sh
 
           # Only test Vertex AI model if credentials are configured
           if [ -n "$VERTEX_AI_PROJECT" ] && [ -n "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]; then
-            echo "Running smoke test for Vertex AI model: $VERTEX_AI_INFERENCE_MODEL"
-            INFERENCE_MODEL="$VERTEX_AI_INFERENCE_MODEL" ./tests/smoke.sh
+            echo "Running smoke test for Vertex AI model: ${{ env.VERTEX_AI_INFERENCE_MODEL }}"
+            INFERENCE_MODEL="${{ env.VERTEX_AI_INFERENCE_MODEL }}" ./tests/smoke.sh
           else
             echo "Skipping Vertex AI smoke test (credentials not configured)"
           fi
@@ -192,6 +197,8 @@ jobs:
       # ============================================
 
       - name: Gather logs and debugging information
+        # Use always() to collect logs even if tests failed
+        # Only run for non-workflow_dispatch events (containers not started for workflow_dispatch)
         if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
@@ -218,6 +225,8 @@ jobs:
           fi
 
       - name: Upload logs as artifacts
+        # Use always() to upload logs even if tests failed
+        # Only run for non-workflow_dispatch events (containers not started for workflow_dispatch)
         if: always() && github.event_name != 'workflow_dispatch'
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
@@ -226,6 +235,8 @@ jobs:
           retention-days: 7
 
       - name: Cleanup containers
+        # Use always() to ensure cleanup runs even if previous steps failed
+        # Only run for non-workflow_dispatch events (containers not started for workflow_dispatch)
         if: always() && github.event_name != 'workflow_dispatch'
         shell: bash
         run: |
