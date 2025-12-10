@@ -43,13 +43,22 @@ jobs:
   build-test-push:
     runs-on: ubuntu-latest
     env:
-      INFERENCE_MODEL: Qwen/Qwen3-0.6B
-      EMBEDDING_MODEL: ibm-granite/granite-embedding-125m-english
+      VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
+      VERTEX_AI_LOCATION: us-central1
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      # Deployment configuration - Llama Stack will support both vLLM and Vertex AI
+      # Model names include provider prefixes for consistency
+      VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
+      VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
+      EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
     strategy:
       matrix:
         platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
+    permissions:
+      id-token: write # for Google Cloud authentication
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -96,6 +105,14 @@ jobs:
           load: true  # needed to load for smoke test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Authenticate to Google Cloud (Vertex)
+        if: github.event_name != 'workflow_dispatch'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.VERTEX_AI_PROJECT }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          create_credentials_file: true
 
       - name: Setup vllm for image test
         if: github.event_name != 'workflow_dispatch'
