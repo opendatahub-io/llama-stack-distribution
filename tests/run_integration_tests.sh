@@ -4,8 +4,6 @@ set -exuo pipefail
 
 # Configuration
 WORK_DIR="/tmp/llama-stack-integration-tests"
-EMBEDDING_MODEL="${EMBEDDING_MODEL:-sentence-transformers/ibm-granite/granite-embedding-125m-english}"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Get repository and version dynamically from Containerfile
