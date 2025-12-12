@@ -17,7 +17,7 @@ distribution_spec:
     - provider_type: remote::pgvector
     safety:
     - provider_type: remote::trustyai_fms
-      module: llama_stack_provider_trustyai_fms==0.3.1
+      module: llama_stack_provider_trustyai_fms==0.3.2
     agents:
     - provider_type: inline::meta-reference
     eval:

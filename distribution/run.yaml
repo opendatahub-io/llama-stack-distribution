@@ -99,7 +99,7 @@ providers:
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
-      module: llama_stack_provider_trustyai_fms==0.2.2
+      module: llama_stack_provider_trustyai_fms==0.3.2
       config:
         orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
         ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
@@ -122,18 +122,18 @@ providers:
     provider_type: remote::trustyai_lmeval
     module: llama_stack_provider_lmeval==0.2.4
     config:
-        use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
-        base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
-  - provider_id: ${env.EMBEDDING_MODEL:+trustyai_ragas_inline}
+      use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
+      base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
+  - provider_id: ${env.TRUSTYAI_EMBEDDING_MODEL:+trustyai_ragas_inline}
     provider_type: inline::trustyai_ragas
     module: llama_stack_provider_ragas.inline
     config:
-      embedding_model: ${env.EMBEDDING_MODEL:=}
+      embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
   - provider_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_ragas_remote}
     provider_type: remote::trustyai_ragas
     module: llama_stack_provider_ragas.remote
     config:
-      embedding_model: ${env.EMBEDDING_MODEL:=}
+      embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
       kubeflow_config:
         results_s3_prefix: ${env.KUBEFLOW_RESULTS_S3_PREFIX:=}
         s3_credentials_secret_name: ${env.KUBEFLOW_S3_CREDENTIALS_SECRET_NAME:=}
@@ -270,10 +270,10 @@ registered_resources:
     provider_id: vllm-inference
     model_type: llm
   - metadata:
-      embedding_dimension: 768
-    model_id: granite-embedding-125m
+      embedding_dimension: ${env.EMBEDDING_DIMENSION:=768}
+    model_id: ${env.EMBEDDING_MODEL:=granite-embedding-125m-english}
     provider_id: ${env.EMBEDDING_PROVIDER:=vllm-embedding}
-    provider_model_id: ibm-granite/granite-embedding-125m-english
+    provider_model_id: ${env.EMBEDDING_PROVIDER_MODEL_ID:=ibm-granite/granite-embedding-125m-english}
     model_type: embedding
   shields: []
   vector_dbs: []

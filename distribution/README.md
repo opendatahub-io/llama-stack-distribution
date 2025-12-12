@@ -14,7 +14,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | batches | inline::reference | No | ✅ | N/A |
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
-| eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `EMBEDDING_MODEL` environment variable |
+| eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
 | eval | remote::trustyai_lmeval | Yes (version 0.4.1) | ✅ | N/A |
 | eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
@@ -27,7 +27,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
 | inference | remote::vllm | No | ❌ | Set the `VLLM_EMBEDDING_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
-| safety | remote::trustyai_fms | Yes (version 0.3.1) | ✅ | N/A |
+| safety | remote::trustyai_fms | Yes (version 0.3.2) | ✅ | N/A |
 | scoring | inline::basic | No | ✅ | N/A |
 | scoring | inline::braintrust | No | ✅ | N/A |
 | scoring | inline::llm-as-judge | No | ✅ | N/A |
