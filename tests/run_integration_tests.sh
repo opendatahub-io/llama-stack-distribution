@@ -26,6 +26,14 @@ if [ -z "$LLAMA_STACK_VERSION" ]; then
     exit 1
 fi
 
+function validate_model_parameter() {
+    # Check if model is provided
+    if [ -z "$1" ]; then
+        echo "Error: No model provided"
+        exit 1
+    fi
+}
+
 function clone_llama_stack() {
     # Clone the repository if it doesn't exist
     if [ ! -d "$WORK_DIR" ]; then
@@ -50,11 +58,7 @@ function clone_llama_stack() {
 }
 
 function run_integration_tests() {
-    # Check if model is provided
-    if [ -z "$1" ]; then
-        echo "Error: No model provided"
-        exit 1
-    fi
+    validate_model_parameter "$1"
     local model="$1"
     echo "Running integration tests for model $model..."
 

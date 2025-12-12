@@ -2,7 +2,7 @@
 
 set -uo pipefail
 
-LLAMA_STACK_URL="http://127.0.0.1:8321"
+LLAMA_STACK_BASE_URL="http://127.0.0.1:8321"
 
 function start_and_wait_for_llama_stack_container {
   # Start llama stack
@@ -29,7 +29,7 @@ function start_and_wait_for_llama_stack_container {
   echo "Waiting for Llama Stack server..."
   for i in {1..60}; do
     echo "Attempt $i to connect to Llama Stack..."
-    resp=$(curl -fsS $LLAMA_STACK_URL/v1/health)
+    resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/health)
     if [ "$resp" == '{"status":"OK"}' ]; then
       echo "Llama Stack server is up!"
       return
@@ -50,7 +50,7 @@ function test_model_list {
   fi
   local model="$1"
   echo "===> Looking for model $model..."
-  resp=$(curl -fsS $LLAMA_STACK_URL/v1/models)
+  resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/models)
   echo "Response: $resp"
   if echo "$resp" | grep -q "$model"; then
     echo "Model $model was found :)"
@@ -72,16 +72,16 @@ function test_model_openai_inference {
   fi
   local model="$1"
   echo "===> Attempting to chat with model $model..."
-  resp=$(curl -fsS $LLAMA_STACK_URL/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$model\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
+  resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$model\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
   if echo "$resp" | grep -q "green"; then
     echo "===> Inference is working :)"
-    return
+    return 0
   else
     echo "===> Inference is not working :("
     echo "Response: $resp"
     echo "Container logs:"
     docker logs llama-stack || true
-    exit 1
+    return 1
   fi
 }
 
@@ -90,11 +90,17 @@ main() {
   start_and_wait_for_llama_stack_container
   # test model list for all models
   for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL" "$EMBEDDING_MODEL"; do
-    test_model_list "$model"
+    if ! test_model_list "$model"; then
+      echo "Model list test failed for $model :("
+      exit 1
+    fi
   done
   # test model inference for all models
   for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
-    test_model_openai_inference "$model"
+    if ! test_model_openai_inference "$model"; then
+      echo "Inference test failed for $model :("
+      exit 1
+    fi
   done
   echo "===> Smoke test completed successfully!"
 }
