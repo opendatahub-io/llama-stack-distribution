@@ -2,6 +2,11 @@
 
 set -uo pipefail
 
+# Source common test utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/test_utils.sh"
+
 LLAMA_STACK_BASE_URL="http://127.0.0.1:8321"
 
 function start_and_wait_for_llama_stack_container {
@@ -43,11 +48,7 @@ function start_and_wait_for_llama_stack_container {
 }
 
 function test_model_list {
-  # Check if model is provided
-  if [ -z "$1" ]; then
-    echo "Error: No model provided"
-    exit 1
-  fi
+  validate_model_parameter "$1"
   local model="$1"
   echo "===> Looking for model $model..."
   resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/models)
@@ -65,11 +66,7 @@ function test_model_list {
 }
 
 function test_model_openai_inference {
-  # Check if model is provided
-  if [ -z "$1" ]; then
-    echo "Error: No model provided"
-    exit 1
-  fi
+  validate_model_parameter "$1"
   local model="$1"
   echo "===> Attempting to chat with model $model..."
   resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$model\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")

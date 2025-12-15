@@ -6,6 +6,10 @@ set -exuo pipefail
 WORK_DIR="/tmp/llama-stack-integration-tests"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Source common test utilities
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/test_utils.sh"
+
 # Get repository and version dynamically from Containerfile
 # Look for git URL format: git+https://github.com/*/llama-stack.git@vVERSION or @VERSION
 CONTAINERFILE="$SCRIPT_DIR/../distribution/Containerfile"
@@ -25,14 +29,6 @@ if [ -z "$LLAMA_STACK_VERSION" ]; then
     echo "Error: Could not extract llama-stack version from Containerfile"
     exit 1
 fi
-
-function validate_model_parameter() {
-    # Check if model is provided
-    if [ -z "$1" ]; then
-        echo "Error: No model provided"
-        exit 1
-    fi
-}
 
 function clone_llama_stack() {
     # Clone the repository if it doesn't exist
