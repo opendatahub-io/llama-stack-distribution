@@ -59,7 +59,7 @@ RUN uv pip install \
     llama_stack_provider_trustyai_fms==0.3.2
 RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --no-deps sentence-transformers
-RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.3.4+rhai0
+RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.3.5+rhai0
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/run.yaml ${APP_ROOT}/run.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
