@@ -5,6 +5,7 @@ function validate_model_parameter() {
     # Check if model is provided
     if [ -z "$1" ]; then
         echo "Error: No model provided"
-        exit 1
+        return 1
     fi
+}
 }
