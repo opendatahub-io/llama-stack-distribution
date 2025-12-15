@@ -88,21 +88,37 @@ function test_model_openai_inference {
 main() {
   echo "===> Starting smoke test..."
   start_and_wait_for_llama_stack_container
+
+  # Track failures
+  failed_models=()
+
   # test model list for all models
+  echo "===> Testing model list for all models..."
   for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL" "$EMBEDDING_MODEL"; do
     if ! test_model_list "$model"; then
-      echo "Model list test failed for $model :("
-      exit 1
+      failed_models+=("model_list:$model")
     fi
   done
+
   # test model inference for all models
+  echo "===> Testing inference for all models..."
   for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
     if ! test_model_openai_inference "$model"; then
-      echo "Inference test failed for $model :("
-      exit 1
+      failed_models+=("inference:$model")
     fi
   done
-  echo "===> Smoke test completed successfully!"
+
+  # Report results
+  if [ ${#failed_models[@]} -eq 0 ]; then
+    echo "===> Smoke test completed successfully!"
+    return 0
+  else
+    echo "===> Smoke test failed for the following:"
+    for failure in "${failed_models[@]}"; do
+      echo "  - $failure"
+    done
+    exit 1
+  fi
 }
 
 main "$@"
