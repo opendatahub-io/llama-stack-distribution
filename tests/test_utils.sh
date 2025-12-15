@@ -8,4 +8,3 @@ function validate_model_parameter() {
         return 1
     fi
 }
-}
