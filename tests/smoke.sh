@@ -2,6 +2,13 @@
 
 set -uo pipefail
 
+# Source common test utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/test_utils.sh"
+
+LLAMA_STACK_BASE_URL="http://127.0.0.1:8321"
+
 function start_and_wait_for_llama_stack_container {
   # Start llama stack
   docker run \
@@ -9,17 +16,21 @@ function start_and_wait_for_llama_stack_container {
     --pull=never \
     --net=host \
     -p 8321:8321 \
-    --env INFERENCE_MODEL="$INFERENCE_MODEL" \
+    --env INFERENCE_MODEL="$VLLM_INFERENCE_MODEL" \
     --env EMBEDDING_MODEL="$EMBEDDING_MODEL" \
     --env VLLM_URL="$VLLM_URL" \
     --env ENABLE_SENTENCE_TRANSFORMERS=True \
     --env EMBEDDING_PROVIDER=sentence-transformers \
     --env TRUSTYAI_LMEVAL_USE_K8S=False \
+    --env VERTEX_AI_PROJECT="$VERTEX_AI_PROJECT" \
+    --env VERTEX_AI_LOCATION="$VERTEX_AI_LOCATION" \
+    --env GOOGLE_APPLICATION_CREDENTIALS="/run/secrets/gcp-credentials" \
     --env POSTGRES_HOST="${POSTGRES_HOST:-localhost}" \
     --env POSTGRES_PORT="${POSTGRES_PORT:-5432}" \
     --env POSTGRES_DB="${POSTGRES_DB:-llamastack}" \
     --env POSTGRES_USER="${POSTGRES_USER:-llamastack}" \
     --env POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-llamastack}" \
+    --volume "$GOOGLE_APPLICATION_CREDENTIALS:/run/secrets/gcp-credentials:ro" \
     --name llama-stack \
     "$IMAGE_NAME:$GITHUB_SHA"
   echo "Started Llama Stack container..."
@@ -28,7 +39,7 @@ function start_and_wait_for_llama_stack_container {
   echo "Waiting for Llama Stack server..."
   for i in {1..60}; do
     echo "Attempt $i to connect to Llama Stack..."
-    resp=$(curl -fsS http://127.0.0.1:8321/v1/health)
+    resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/health)
     if [ "$resp" == '{"status":"OK"}' ]; then
       echo "Llama Stack server is up!"
       return
@@ -42,36 +53,37 @@ function start_and_wait_for_llama_stack_container {
 }
 
 function test_model_list {
-  for model in "$INFERENCE_MODEL" "$EMBEDDING_MODEL"; do
-    echo "===> Looking for model $model..."
-    resp=$(curl -fsS http://127.0.0.1:8321/v1/models)
+  validate_model_parameter "$1"
+  local model="$1"
+  echo "===> Looking for model $model..."
+  resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/models)
+  echo "Response: $resp"
+  if echo "$resp" | grep -q "$model"; then
+    echo "Model $model was found :)"
+  else
+    echo "Model $model was not found :("
     echo "Response: $resp"
-    if echo "$resp" | grep -q "$model"; then
-      echo "Model $model was found :)"
-      continue
-    else
-      echo "Model $model was not found :("
-      echo "Response: $resp"
-      echo "Container logs:"
-      docker logs llama-stack || true
-      return 1
-    fi
-  done
+    echo "Container logs:"
+    docker logs llama-stack || true
+    return 1
+  fi
   return 0
 }
 
 function test_model_openai_inference {
-  echo "===> Attempting to chat with model $INFERENCE_MODEL..."
-  resp=$(curl -fsS http://127.0.0.1:8321/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"vllm-inference/$INFERENCE_MODEL\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
+  validate_model_parameter "$1"
+  local model="$1"
+  echo "===> Attempting to chat with model $model..."
+  resp=$(curl -fsS $LLAMA_STACK_BASE_URL/v1/chat/completions -H "Content-Type: application/json" -d "{\"model\": \"$model\",\"messages\": [{\"role\": \"user\", \"content\": \"What color is grass?\"}], \"max_tokens\": 128, \"temperature\": 0.0}")
   if echo "$resp" | grep -q "green"; then
     echo "===> Inference is working :)"
-    return
+    return 0
   else
     echo "===> Inference is not working :("
     echo "Response: $resp"
     echo "Container logs:"
     docker logs llama-stack || true
-    exit 1
+    return 1
   fi
 }
 
@@ -137,20 +149,43 @@ function test_postgres_populated {
 main() {
   echo "===> Starting smoke test..."
   start_and_wait_for_llama_stack_container
-  if ! test_model_list; then
-    echo "Model list test failed :("
-    exit 1
-  fi
-  test_model_openai_inference
+
+  # Track failures
+  failed_checks=()
+
+  echo "===> Testing model list for all models..."
+  for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL" "$EMBEDDING_MODEL"; do
+    if ! test_model_list "$model"; then
+      failed_checks+=("model_list:$model")
+    fi
+  done
+
+  echo "===> Testing inference for all models..."
+  for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
+    if ! test_model_openai_inference "$model"; then
+      failed_checks+=("inference:$model")
+    fi
+  done
+
+  # Verify PostgreSQL tables and data
   if ! test_postgres_tables_exist; then
-    echo "PostgreSQL tables verification failed :("
-    exit 1
+    failed_checks+=("postgres:tables")
   fi
   if ! test_postgres_populated; then
-    echo "PostgreSQL data verification failed :("
+    failed_checks+=("postgres:data")
+  fi
+
+  # Report results
+  if [ ${#failed_checks[@]} -eq 0 ]; then
+    echo "===> Smoke test completed successfully!"
+    return 0
+  else
+    echo "===> Smoke test failed for the following:"
+    for failure in "${failed_checks[@]}"; do
+      echo "  - $failure"
+    done
     exit 1
   fi
-  echo "===> Smoke test completed successfully!"
 }
 
 main "$@"

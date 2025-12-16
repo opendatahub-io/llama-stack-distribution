@@ -4,10 +4,11 @@ set -exuo pipefail
 
 # Configuration
 WORK_DIR="/tmp/llama-stack-integration-tests"
-INFERENCE_MODEL="${INFERENCE_MODEL:-Qwen/Qwen3-0.6B}"
-EMBEDDING_MODEL="${EMBEDDING_MODEL:-ibm-granite/granite-embedding-125m-english}"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source common test utilities
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/test_utils.sh"
 
 # Get repository and version dynamically from Containerfile
 # Look for git URL format: git+https://github.com/*/llama-stack.git@vVERSION or @VERSION
@@ -53,7 +54,9 @@ function clone_llama_stack() {
 }
 
 function run_integration_tests() {
-    echo "Running integration tests..."
+    validate_model_parameter "$1"
+    local model="$1"
+    echo "Running integration tests for model $model..."
 
     cd "$WORK_DIR"
 
@@ -76,8 +79,8 @@ function run_integration_tests() {
     uv pip install llama-stack-client
     uv run pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
-        --text-model=vllm-inference/"$INFERENCE_MODEL" \
-        --embedding-model=sentence-transformers/"$EMBEDDING_MODEL" \
+        --text-model="$model" \
+        --embedding-model="$EMBEDDING_MODEL" \
         -k "not ($SKIP_TESTS)"
 }
 
@@ -87,11 +90,14 @@ function main() {
     echo "  LLAMA_STACK_VERSION: $LLAMA_STACK_VERSION"
     echo "  LLAMA_STACK_REPO: $LLAMA_STACK_REPO"
     echo "  WORK_DIR: $WORK_DIR"
-    echo "  INFERENCE_MODEL: $INFERENCE_MODEL"
+    echo "  VLLM_INFERENCE_MODEL: $VLLM_INFERENCE_MODEL"
+    echo "  VERTEX_AI_INFERENCE_MODEL: $VERTEX_AI_INFERENCE_MODEL"
+    echo "  EMBEDDING_MODEL: $EMBEDDING_MODEL"
 
     clone_llama_stack
-    run_integration_tests
-
+    for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
+        run_integration_tests "$model"
+    done
     echo "Integration tests completed successfully!"
 }
 
