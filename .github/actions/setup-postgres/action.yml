@@ -1,0 +1,33 @@
+name: Setup PostgreSQL
+description: Start PostgreSQL for llama-stack
+runs:
+  using: "composite"
+  steps:
+    - name: Start PostgreSQL
+      shell: bash
+      run: |
+        docker run -d \
+          --name postgres \
+          --net=host \
+          -e POSTGRES_USER=llamastack \
+          -e POSTGRES_PASSWORD=llamastack \
+          -e POSTGRES_DB=llamastack \
+          postgres:17
+
+        # Wait for PostgreSQL to be ready
+        echo "Waiting for PostgreSQL to be ready..."
+        postgres_ready=false
+        for i in {1..30}; do
+          if docker exec postgres pg_isready -U llamastack -d llamastack; then
+            echo "PostgreSQL is ready!"
+            postgres_ready=true
+            break
+          fi
+          echo "Attempt $i: PostgreSQL not ready yet..."
+          sleep 1
+        done
+        if [ "$postgres_ready" != true ]; then
+          echo "PostgreSQL failed to start after 30s :("
+          docker logs postgres || true
+          exit 1
+        fi

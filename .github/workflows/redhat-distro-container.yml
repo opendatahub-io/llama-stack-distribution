@@ -102,6 +102,11 @@ jobs:
         id: vllm
         uses: ./.github/actions/setup-vllm
 
+      - name: Setup PostgreSQL for llama-stack
+        if: github.event_name != 'workflow_dispatch'
+        id: postgres
+        uses: ./.github/actions/setup-postgres
+
       - name: Start and smoke test LLS distro image
         if: github.event_name != 'workflow_dispatch'
         id: smoke-test
@@ -123,6 +128,7 @@ jobs:
 
           docker logs llama-stack > logs/llama-stack.log 2>&1 || echo "Failed to get llama-stack logs" > logs/llama-stack.log
           docker logs vllm > logs/vllm.log 2>&1 || echo "Failed to get vllm logs" > logs/vllm.log
+          docker logs postgres > logs/postgres.log 2>&1 || echo "Failed to get postgres logs" > logs/postgres.log
 
           # Gather system information
           echo "=== System information ==="
@@ -157,7 +163,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          docker rm -f vllm llama-stack
+          docker rm -f vllm llama-stack postgres
 
       - name: Log in to Quay.io
         id: login
