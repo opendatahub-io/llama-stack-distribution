@@ -64,13 +64,13 @@ providers:
     config:
       db_path: /opt/app-root/src/.llama/distributions/rh/milvus.db
       persistence:
-        backend: kv_milvus_inline
+        backend: kv_default
         namespace: vector_io::milvus
   - provider_id: ${env.ENABLE_FAISS:+faiss}
     provider_type: inline::faiss
     config:
       persistence:
-        backend: kv_faiss
+        backend: kv_default
         namespace: vector_io::faiss
   - provider_id: ${env.MILVUS_ENDPOINT:+milvus-remote}
     provider_type: remote::milvus
@@ -83,7 +83,7 @@ providers:
       client_pem_path: ${env.MILVUS_CLIENT_PEM_PATH:=}
       client_key_path: ${env.MILVUS_CLIENT_KEY_PATH:=}
       persistence:
-        backend: kv_milvus_remote
+        backend: kv_default
         namespace: vector_io::milvus_remote
   - provider_id: ${env.ENABLE_PGVECTOR:+pgvector}
     provider_type: remote::pgvector
@@ -94,7 +94,7 @@ providers:
       user: ${env.PGVECTOR_USER:=}
       password: ${env.PGVECTOR_PASSWORD:=}
       persistence:
-        backend: kv_pgvector
+        backend: kv_default
         namespace: vector_io::pgvector
   safety:
     - provider_id: trustyai_fms
@@ -110,10 +110,10 @@ providers:
     config:
       persistence:
         agent_state:
-          backend: kv_agents
+          backend: kv_default
           namespace: agents::meta_reference
         responses:
-          backend: sql_agents
+          backend: sql_default
           table_name: agents_responses
           max_write_queue_size: 10000
           num_writers: 4
@@ -147,13 +147,13 @@ providers:
     provider_type: remote::huggingface
     config:
       kvstore:
-        backend: kv_datasetio_huggingface
+        backend: kv_default
         namespace: datasetio::huggingface
   - provider_id: localfs
     provider_type: inline::localfs
     config:
       kvstore:
-        backend: kv_datasetio_localfs
+        backend: kv_default
         namespace: datasetio::localfs
   scoring:
   - provider_id: basic
@@ -189,7 +189,7 @@ providers:
     config:
       storage_dir: /opt/app-root/src/.llama/distributions/rh/files
       metadata_store:
-        backend: sql_files
+        backend: sql_default
         table_name: files_metadata
   - provider_id: ${env.ENABLE_S3:+s3}
     provider_type: remote::s3
@@ -201,7 +201,7 @@ providers:
       endpoint_url: ${env.S3_ENDPOINT_URL:=}
       auto_create_bucket: ${env.S3_AUTO_CREATE_BUCKET:=false}
       metadata_store:
-        backend: sql_files
+        backend: sql_default
         table_name: files_metadata
   batches:
   - provider_id: reference
@@ -213,48 +213,27 @@ providers:
 storage:
   backends:
     kv_default:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/kvstore.db
-    kv_agents:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/agents_store.db
-    kv_faiss:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/faiss.db
-    kv_milvus_inline:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/milvus_inline_registry.db
-    kv_milvus_remote:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/milvus_remote_registry.db
-    kv_pgvector:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/pgvector_registry.db
-    kv_datasetio_huggingface:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/huggingface_datasetio.db
-    kv_datasetio_localfs:
-      type: kv_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/localfs_datasetio.db
-    sql_inference:
-      type: sql_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/inference_store.db
-    sql_agents:
-      type: sql_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/responses_store.db
-    sql_files:
-      type: sql_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/files_metadata.db
+      type: kv_postgres
+      host: ${env.POSTGRES_HOST:=localhost}
+      port: ${env.POSTGRES_PORT:=5432}
+      db: ${env.POSTGRES_DB:=llamastack}
+      user: ${env.POSTGRES_USER:=llamastack}
+      password: ${env.POSTGRES_PASSWORD:=llamastack}
+      table_name: ${env.POSTGRES_TABLE_NAME:=llamastack_kvstore}
     sql_default:
-      type: sql_sqlite
-      db_path: /opt/app-root/src/.llama/distributions/rh/sql_store.db
+      type: sql_postgres
+      host: ${env.POSTGRES_HOST:=localhost}
+      port: ${env.POSTGRES_PORT:=5432}
+      db: ${env.POSTGRES_DB:=llamastack}
+      user: ${env.POSTGRES_USER:=llamastack}
+      password: ${env.POSTGRES_PASSWORD:=llamastack}
   stores:
     metadata:
       backend: kv_default
       namespace: registry
     inference:
-      backend: sql_inference
       table_name: inference_store
+      backend: sql_default
       max_write_queue_size: 10000
       num_writers: 4
     conversations:
