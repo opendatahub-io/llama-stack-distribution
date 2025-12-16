@@ -89,7 +89,6 @@ main() {
   # Track failures
   failed_models=()
 
-  # test model list for all models
   echo "===> Testing model list for all models..."
   for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL" "$EMBEDDING_MODEL"; do
     if ! test_model_list "$model"; then
@@ -97,7 +96,6 @@ main() {
     fi
   done
 
-  # test model inference for all models
   echo "===> Testing inference for all models..."
   for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
     if ! test_model_openai_inference "$model"; then
