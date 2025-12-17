@@ -142,8 +142,6 @@ jobs:
         shell: bash
         run: ./tests/run_integration_tests.sh
 
-
-
       - name: Gather logs and debugging information
         if: always()
         shell: bash
