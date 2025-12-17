@@ -93,9 +93,22 @@ function main() {
     echo "  VLLM_INFERENCE_MODEL: $VLLM_INFERENCE_MODEL"
     echo "  VERTEX_AI_INFERENCE_MODEL: $VERTEX_AI_INFERENCE_MODEL"
     echo "  EMBEDDING_MODEL: $EMBEDDING_MODEL"
+    echo "  VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-<not set>}"
 
     clone_llama_stack
-    for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
+
+    # Build list of models to test based on available configuration
+    models_to_test=("$VLLM_INFERENCE_MODEL")
+
+    # Only include Vertex AI models if VERTEX_AI_PROJECT is set
+    if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
+        echo "VERTEX_AI_PROJECT is set, including Vertex AI models in tests"
+        models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
+    else
+        echo "VERTEX_AI_PROJECT is not set, skipping Vertex AI models"
+    fi
+
+    for model in "${models_to_test[@]}"; do
         run_integration_tests "$model"
     done
     echo "Integration tests completed successfully!"
