@@ -48,10 +48,15 @@ def is_install_from_source(llama_stack_version):
     return "." not in llama_stack_version or "+rhai" in llama_stack_version
 
 
-def check_package_installed(package_name):
-    """Check if llama binary is installed and accessible."""
-    if not shutil.which(package_name):
-        print(f"Error: {package_name} not found. Please install it first.")
+def check_command_installed(command, package_name=None):
+    """Check if a command is installed and accessible."""
+    if not shutil.which(command):
+        if package_name:
+            print(
+                f"Error: {command} not found. Please run uv pip install {package_name}"
+            )
+        else:
+            print(f"Error: {command} not found. Please install it.")
         sys.exit(1)
 
 
@@ -262,11 +267,10 @@ def generate_containerfile(dependencies, llama_stack_install):
 
 
 def main():
-    check_package_installed("uv")
+    check_command_installed("uv")
     install_llama_stack_from_source(LLAMA_STACK_VERSION)
 
-    print("Checking llama installation...")
-    check_package_installed("llama")
+    check_command_installed("llama", "llama-stack-client")
 
     # Do not perform version check if installing from source
     if not is_install_from_source(LLAMA_STACK_VERSION):
