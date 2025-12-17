@@ -10,29 +10,42 @@ source "$SCRIPT_DIR/test_utils.sh"
 LLAMA_STACK_BASE_URL="http://127.0.0.1:8321"
 
 function start_and_wait_for_llama_stack_container {
+  # Build docker run command with base arguments
+  docker_args=(
+    -d
+    --pull=never
+    --net=host
+    -p 8321:8321
+    --env "INFERENCE_MODEL=$VLLM_INFERENCE_MODEL"
+    --env "EMBEDDING_MODEL=$EMBEDDING_MODEL"
+    --env "VLLM_URL=$VLLM_URL"
+    --env "ENABLE_SENTENCE_TRANSFORMERS=True"
+    --env "EMBEDDING_PROVIDER=sentence-transformers"
+    --env "TRUSTYAI_LMEVAL_USE_K8S=False"
+    --env "POSTGRES_HOST=${POSTGRES_HOST:-localhost}"
+    --env "POSTGRES_PORT=${POSTGRES_PORT:-5432}"
+    --env "POSTGRES_DB=${POSTGRES_DB:-llamastack}"
+    --env "POSTGRES_USER=${POSTGRES_USER:-llamastack}"
+    --env "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-llamastack}"
+  )
+
+  # Only add Vertex AI configuration if VERTEX_AI_PROJECT is set
+  if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
+    docker_args+=(
+      --env "VERTEX_AI_PROJECT=$VERTEX_AI_PROJECT"
+      --env "VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION"
+      --env "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-credentials"
+    )
+    # Only mount credentials if the file exists
+    if [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+      docker_args+=(--volume "$GOOGLE_APPLICATION_CREDENTIALS:/run/secrets/gcp-credentials:ro")
+    fi
+  fi
+
+  docker_args+=(--name llama-stack "$IMAGE_NAME:$GITHUB_SHA")
+
   # Start llama stack
-  docker run \
-    -d \
-    --pull=never \
-    --net=host \
-    -p 8321:8321 \
-    --env INFERENCE_MODEL="$VLLM_INFERENCE_MODEL" \
-    --env EMBEDDING_MODEL="$EMBEDDING_MODEL" \
-    --env VLLM_URL="$VLLM_URL" \
-    --env ENABLE_SENTENCE_TRANSFORMERS=True \
-    --env EMBEDDING_PROVIDER=sentence-transformers \
-    --env TRUSTYAI_LMEVAL_USE_K8S=False \
-    --env VERTEX_AI_PROJECT="$VERTEX_AI_PROJECT" \
-    --env VERTEX_AI_LOCATION="$VERTEX_AI_LOCATION" \
-    --env GOOGLE_APPLICATION_CREDENTIALS="/run/secrets/gcp-credentials" \
-    --env POSTGRES_HOST="${POSTGRES_HOST:-localhost}" \
-    --env POSTGRES_PORT="${POSTGRES_PORT:-5432}" \
-    --env POSTGRES_DB="${POSTGRES_DB:-llamastack}" \
-    --env POSTGRES_USER="${POSTGRES_USER:-llamastack}" \
-    --env POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-llamastack}" \
-    --volume "$GOOGLE_APPLICATION_CREDENTIALS:/run/secrets/gcp-credentials:ro" \
-    --name llama-stack \
-    "$IMAGE_NAME:$GITHUB_SHA"
+  docker run "${docker_args[@]}"
   echo "Started Llama Stack container..."
 
   # Wait for llama stack to be ready by doing a health check
@@ -153,15 +166,28 @@ main() {
   # Track failures
   failed_checks=()
 
+  # Build list of models to test based on available configuration
+  models_to_test=("$VLLM_INFERENCE_MODEL" "$EMBEDDING_MODEL")
+  inference_models_to_test=("$VLLM_INFERENCE_MODEL")
+
+  # Only include Vertex AI models if VERTEX_AI_PROJECT is set
+  if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
+    echo "===> VERTEX_AI_PROJECT is set, including Vertex AI models in tests"
+    models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
+    inference_models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
+  else
+    echo "===> VERTEX_AI_PROJECT is not set, skipping Vertex AI models"
+  fi
+
   echo "===> Testing model list for all models..."
-  for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL" "$EMBEDDING_MODEL"; do
+  for model in "${models_to_test[@]}"; do
     if ! test_model_list "$model"; then
       failed_checks+=("model_list:$model")
     fi
   done
 
   echo "===> Testing inference for all models..."
-  for model in "$VLLM_INFERENCE_MODEL" "$VERTEX_AI_INFERENCE_MODEL"; do
+  for model in "${inference_models_to_test[@]}"; do
     if ! test_model_openai_inference "$model"; then
       failed_checks+=("inference:$model")
     fi

@@ -106,8 +106,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Unset VERTEX_AI_PROJECT for fork PRs (secrets not available)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "Unsetting VERTEX_AI_PROJECT for fork PR (secrets not available)"
+          echo "VERTEX_AI_PROJECT=" >> "$GITHUB_ENV"
+
       - name: Authenticate to Google Cloud (Vertex)
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
