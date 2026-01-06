@@ -29,6 +29,7 @@ PINNED_DEPENDENCIES = [
     "'aiobotocore==2.16.1'",
     "'ibm-cos-sdk-core==2.14.2'",
     "'ibm-cos-sdk==2.14.2'",
+    "'tornado>=6.5.3'",  # CVE-2025-67725: Fix Quadratic DoS via Repeated Header Coalescing
 ]
 
 source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}"""

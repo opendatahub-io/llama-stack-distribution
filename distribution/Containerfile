@@ -11,7 +11,8 @@ RUN uv pip install --upgrade \
     'boto3==1.35.88' \
     'aiobotocore==2.16.1' \
     'ibm-cos-sdk-core==2.14.2' \
-    'ibm-cos-sdk==2.14.2'
+    'ibm-cos-sdk==2.14.2' \
+    'tornado>=6.5.3'
 RUN uv pip install \
     'datasets>=4.0.0' \
     'mcp>=1.23.0' \
