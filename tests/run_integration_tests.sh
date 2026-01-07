@@ -50,6 +50,12 @@ function run_integration_tests() {
         exit 1
     fi
 
+
+    # we need to prevent uv from syncing uv.lock (as llama-stack-client>=0.2.22 has no upper bound)
+    # This is happening during uv commands because the llama-stack versions in pyproject.toml and uv.lock mismatch
+    sed -i 's/"llama-stack-client>=0\.2\.22"/"llama-stack-client==0.2.23"/g' pyproject.toml
+    uv lock
+
     uv run pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
         --text-model=vllm-inference/"$INFERENCE_MODEL" \
