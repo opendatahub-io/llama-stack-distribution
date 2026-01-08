@@ -65,14 +65,14 @@ def extract_llama_stack_version():
 
         # Look for llama-stack version in pip install commands
         # Pattern matches: llama-stack==X.Y.Z or llama-stack==X.Y.ZrcN+rhaiM
-        pattern = r"llama-stack==([0-9]+\.[0-9]+\.[0-9]+(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
+        pattern = r"llama-stack==([0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
         match = re.search(pattern, content)
 
         if match:
             return (match.group(1), "opendatahub-io")
 
         # Look for git URL format: git+https://github.com/*/llama-stack.git@vVERSION or @VERSION
-        git_pattern = r"git\+https://github\.com/([^/]+)/llama-stack\.git@v?([0-9]+\.[0-9]+\.[0-9]+(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
+        git_pattern = r"git\+https://github\.com/([^/]+)/llama-stack\.git@v?([0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
         git_match = re.search(git_pattern, content)
 
         if git_match:
