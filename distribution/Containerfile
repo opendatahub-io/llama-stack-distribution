@@ -19,7 +19,7 @@ RUN pip install \
     ibm_watsonx_ai \
     litellm \
     matplotlib \
-    'mcp>=1.8.1' \
+    'mcp>=1.23.0' \
     nltk \
     numpy \
     opentelemetry-exporter-otlp-proto-http \

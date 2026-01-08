@@ -96,6 +96,14 @@ def get_dependencies():
                         for package in packages
                     ]
 
+                    # pin to mcp>=1.23.0, idealy this would be done in BASE_REQUIREMENTS (above)
+                    # but older version of build.py didn't support this, not adding support now to
+                    # minimise changes in old releases
+                    packages = [
+                        "'mcp>=1.23.0'" if package == "'mcp>=1.8.1'" else package
+                        for package in packages
+                    ]
+
                     # Determine command type and format accordingly
                     if ("--index-url" in line) or ("--extra-index-url" in line):
                         full_cmd = " ".join(cmd_parts + [" ".join(packages)])
