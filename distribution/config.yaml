@@ -16,14 +16,14 @@ providers:
   - provider_id: ${env.VLLM_URL:+vllm-inference}
     provider_type: remote::vllm
     config:
-      url: ${env.VLLM_URL:=}
+      base_url: ${env.VLLM_URL:=}
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
   - provider_id: ${env.VLLM_EMBEDDING_URL:+vllm-embedding}
     provider_type: remote::vllm
     config:
-      url: ${env.VLLM_EMBEDDING_URL:=}
+      base_url: ${env.VLLM_EMBEDDING_URL:=}
       max_tokens: ${env.VLLM_EMBEDDING_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_EMBEDDING_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_EMBEDDING_TLS_VERIFY:=true}
@@ -38,7 +38,7 @@ providers:
   - provider_id: ${env.WATSONX_API_KEY:+watsonx}
     provider_type: remote::watsonx
     config:
-      url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
+      base_url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
       api_key: ${env.WATSONX_API_KEY:=}
       project_id: ${env.WATSONX_PROJECT_ID:=}
   - provider_id: ${env.AZURE_API_KEY:+azure}
