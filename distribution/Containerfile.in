@@ -7,7 +7,7 @@ RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 {llama_stack_install_source}
 
 RUN mkdir -p ${{HOME}}/.llama ${{HOME}}/.cache
-COPY distribution/run.yaml ${{APP_ROOT}}/run.yaml
+COPY distribution/config.yaml ${{APP_ROOT}}/config.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${{APP_ROOT}}/entrypoint.sh
 
 #TODO: remove this once we have a stable version of llama-stack

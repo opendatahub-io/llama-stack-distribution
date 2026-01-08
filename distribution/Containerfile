@@ -61,7 +61,7 @@ RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torch
 RUN uv pip install --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.3.5+rhai0
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
-COPY distribution/run.yaml ${APP_ROOT}/run.yaml
+COPY distribution/config.yaml ${APP_ROOT}/config.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
 #TODO: remove this once we have a stable version of llama-stack
 # LLS server version is not aligned with the client version, so we disable the version check

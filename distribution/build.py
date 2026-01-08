@@ -118,7 +118,7 @@ def install_llama_stack_from_source(llama_stack_version):
 
 def get_dependencies():
     """Execute the llama stack build command and capture dependencies."""
-    cmd = "llama stack list-deps distribution/build.yaml"
+    cmd = "llama stack list-deps distribution/config.yaml"
     try:
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, check=True
