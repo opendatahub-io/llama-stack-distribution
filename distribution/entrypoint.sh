@@ -9,4 +9,4 @@ if [ -n "$DISTRO_NAME" ]; then
   exec llama stack run "$DISTRO_NAME" "$@"
 fi
 
-exec llama stack run /opt/app-root/run.yaml "$@"
+exec llama stack run /opt/app-root/config.yaml "$@"

@@ -11,10 +11,11 @@ import shutil
 import subprocess
 import sys
 import os
+import re
 import shlex
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "v0.3.5+rhai0"
+CURRENT_LLAMA_STACK_VERSION = "v0.4.0+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
@@ -118,7 +119,7 @@ def install_llama_stack_from_source(llama_stack_version):
 
 def get_dependencies():
     """Execute the llama stack build command and capture dependencies."""
-    cmd = "llama stack list-deps distribution/build.yaml"
+    cmd = "llama stack list-deps distribution/config.yaml"
     try:
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, check=True
@@ -134,21 +135,9 @@ def get_dependencies():
             if not line:  # Skip empty lines
                 continue
 
-            # Handle both "uv pip" format and direct package list format
-            if line.startswith("uv pip"):
-                # Legacy format: "uv pip install ..."
-                line = line.replace("uv ", "RUN ", 1)
-                parts = line.split(" ", 3)
-                if len(parts) >= 4:  # We have packages to sort
-                    cmd_parts = parts[:3]  # "RUN pip install"
-                    packages_str = parts[3]
-                else:
-                    standard_deps.append(" ".join(parts))
-                    continue
-            else:
-                # New format: just packages, possibly with flags
-                cmd_parts = ["RUN", "uv", "pip", "install"]
-                packages_str = line
+            # New format: just packages, possibly with flags
+            cmd_parts = ["RUN", "uv", "pip", "install"]
+            packages_str = line
 
             # Parse packages and flags from the line
             # Use shlex.split to properly handle quoted package names
@@ -187,6 +176,22 @@ def get_dependencies():
                 package.replace("pymilvus", "pymilvus[milvus-lite]")
                 if "pymilvus" in package and "[milvus-lite]" not in package
                 else package
+                for package in packages
+            ]
+
+            # Convert namespace packages like llama_stack_provider_ragas.extra==0.5.1
+            # to extras syntax llama_stack_provider_ragas[extra]==0.5.1
+            # Only match .extra immediately before a version specifier (not in version numbers)
+            #
+            # We are not sending a patch to llama-stack upstream because not everyone python
+            # sub-module is a package, we just handle this here instead for our own packages.
+            # Even though pip will just show a warning if the extra does not exist
+            packages = [
+                re.sub(
+                    r"\.([a-zA-Z_][a-zA-Z0-9_]*)(==|>=|<=|>|<|~=|!=)",
+                    r"[\1]\2",
+                    package,
+                )
                 for package in packages
             ]
             packages = sorted(set(packages))

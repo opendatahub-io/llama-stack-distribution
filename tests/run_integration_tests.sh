@@ -66,8 +66,8 @@ function run_integration_tests() {
     # TODO: re-enable the 2 chat_completion_non_streaming tests once they contain include max tokens (to prevent them from rambling)
     SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming or test_openai_chat_completion_with_tool_choice_none or test_openai_chat_completion_with_tools or test_openai_format_preserves_complex_schemas $RC2_SKIP_TESTS"
 
-    # Dynamically determine the path to run.yaml from the original script directory
-    STACK_CONFIG_PATH="$SCRIPT_DIR/../distribution/run.yaml"
+    # Dynamically determine the path to config.yaml from the original script directory
+    STACK_CONFIG_PATH="$SCRIPT_DIR/../distribution/config.yaml"
     if [ ! -f "$STACK_CONFIG_PATH" ]; then
         echo "Error: Could not find stack config at $STACK_CONFIG_PATH"
         exit 1

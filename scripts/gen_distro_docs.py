@@ -65,14 +65,14 @@ def extract_llama_stack_version():
 
         # Look for llama-stack version in pip install commands
         # Pattern matches: llama-stack==X.Y.Z or llama-stack==X.Y.ZrcN+rhaiM
-        pattern = r"llama-stack==([0-9]+\.[0-9]+\.[0-9]+(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
+        pattern = r"llama-stack==([0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
         match = re.search(pattern, content)
 
         if match:
             return (match.group(1), "opendatahub-io")
 
         # Look for git URL format: git+https://github.com/*/llama-stack.git@vVERSION or @VERSION
-        git_pattern = r"git\+https://github\.com/([^/]+)/llama-stack\.git@v?([0-9]+\.[0-9]+\.[0-9]+(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
+        git_pattern = r"git\+https://github\.com/([^/]+)/llama-stack\.git@v?([0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:rc[0-9]+)?(?:\+rhai[0-9]+)?)"
         git_match = re.search(git_pattern, content)
 
         if git_match:
@@ -201,11 +201,11 @@ def gen_distro_table(providers_data):
 
 
 def gen_distro_docs():
-    # define distro run.yaml and README.md paths
-    run_yaml_path = REPO_ROOT / "distribution" / "run.yaml"
+    # define distro config.yaml and README.md paths
+    run_yaml_path = REPO_ROOT / "distribution" / "config.yaml"
     readme_path = REPO_ROOT / "distribution" / "README.md"
 
-    # check if run.yaml exists
+    # check if config.yaml exists
     if not run_yaml_path.exists():
         print(f"Error: {run_yaml_path} not found")
         return 1
@@ -247,7 +247,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 """
 
     try:
-        # Load the run.yaml data
+        # Load the config.yaml data
         with open(run_yaml_path, "r") as file:
             run_yaml_data = yaml.safe_load(file)
 
@@ -255,7 +255,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
         providers = run_yaml_data.get("providers", {})
 
         if not providers:
-            print("Error: No providers found in run.yaml")
+            print("Error: No providers found in config.yaml")
             return 1
 
         # Generate the Markdown table
