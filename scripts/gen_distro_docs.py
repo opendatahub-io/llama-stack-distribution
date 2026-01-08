@@ -87,20 +87,19 @@ def extract_llama_stack_version():
 
 
 def load_external_providers_info():
-    """Load build.yaml and extract external provider information."""
-    build_yaml_path = REPO_ROOT / "distribution" / "build.yaml"
+    """Load config.yaml and extract external provider information."""
+    config_yaml_path = REPO_ROOT / "distribution" / "config.yaml"
 
-    if not build_yaml_path.exists():
-        print(f"Error: {build_yaml_path} not found")
+    if not config_yaml_path.exists():
+        print(f"Error: {config_yaml_path} not found")
         exit(1)
 
     try:
-        with open(build_yaml_path, "r") as file:
-            build_yaml_data = yaml.safe_load(file)
+        with open(config_yaml_path, "r") as file:
+            config_yaml_data = yaml.safe_load(file)
 
-        # Extract providers section from distribution_spec
-        distribution_spec = build_yaml_data.get("distribution_spec", {})
-        providers = distribution_spec.get("providers", {})
+        # Extract providers section directly from root level
+        providers = config_yaml_data.get("providers", {})
 
         # Create a mapping of provider_type to external info
         external_info = {}
@@ -126,7 +125,7 @@ def load_external_providers_info():
         return external_info
 
     except Exception as e:
-        print(f"Error: Error reading build.yaml: {e}")
+        print(f"Error: Error reading config.yaml: {e}")
         exit(1)
 
 
@@ -137,7 +136,7 @@ def gen_distro_table(providers_data):
         "|-----|----------|-----------|---------------------|---------------|",
     ]
 
-    # Load external provider information from build.yaml
+    # Load external provider information from config.yaml
     external_providers = load_external_providers_info()
 
     # Create a list to collect all API-Provider pairs for sorting
@@ -169,7 +168,7 @@ def gen_distro_table(providers_data):
                         enabled_by_default = "✅"
                         how_to_enable = "N/A"
 
-                    # Determine external status using build.yaml data
+                    # Determine external status using config.yaml data
                     external_status = external_providers.get(provider_type, "No")
 
                     api_provider_pairs.append(

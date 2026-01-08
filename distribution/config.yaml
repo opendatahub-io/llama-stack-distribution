@@ -1,0 +1,88 @@
+version: 2
+distribution_spec:
+  description: Red Hat distribution of Llama Stack
+apis:
+  - inference
+  - vector_io
+  - safety
+  - agents
+  - eval
+  - datasetio
+  - scoring
+  - tool_runtime
+  - files
+providers:
+  inference:
+  - provider_id: vllm
+    provider_type: remote::vllm
+  - provider_id: bedrock
+    provider_type: remote::bedrock
+  - provider_id: sentence-transformers
+    provider_type: inline::sentence-transformers
+  - provider_id: watsonx
+    provider_type: remote::watsonx
+  - provider_id: azure
+    provider_type: remote::azure
+  - provider_id: vertexai
+    provider_type: remote::vertexai
+  - provider_id: openai
+    provider_type: remote::openai
+  vector_io:
+  - provider_id: milvus
+    provider_type: inline::milvus
+  - provider_id: remote-milvus
+    provider_type: remote::milvus
+  - provider_id: faiss
+    provider_type: inline::faiss
+  - provider_id: pgvector
+    provider_type: remote::pgvector
+  safety:
+  - provider_id: trustyai_fms
+    provider_type: remote::trustyai_fms
+    module: llama_stack_provider_trustyai_fms==0.3.2
+  agents:
+  - provider_id: meta-reference
+    provider_type: inline::meta-reference
+  eval:
+  - provider_id: trustyai_lmeval
+    provider_type: remote::trustyai_lmeval
+    module: llama_stack_provider_lmeval==0.4.1
+  - provider_id: trustyai_ragas
+    provider_type: inline::trustyai_ragas
+    module: llama_stack_provider_ragas==0.5.1
+  - provider_id: trustyai_ragas_remote
+    provider_type: remote::trustyai_ragas
+    module: llama_stack_provider_ragas[remote]==0.5.1
+  datasetio:
+  - provider_id: huggingface
+    provider_type: remote::huggingface
+  - provider_id: localfs
+    provider_type: inline::localfs
+  scoring:
+  - provider_id: basic
+    provider_type: inline::basic
+  - provider_id: llm-as-judge
+    provider_type: inline::llm-as-judge
+  - provider_id: braintrust
+    provider_type: inline::braintrust
+  tool_runtime:
+  - provider_id: brave-search
+    provider_type: remote::brave-search
+  - provider_id: tavily-search
+    provider_type: remote::tavily-search
+  - provider_id: rag-runtime
+    provider_type: inline::rag-runtime
+  - provider_id: model-context-protocol
+    provider_type: remote::model-context-protocol
+  files:
+  - provider_id: localfs-files
+    provider_type: inline::localfs
+  - provider_id: s3
+    provider_type: remote::s3
+additional_pip_packages:
+- aiosqlite
+- sqlalchemy[asyncio]
+- asyncpg
+- psycopg2-binary
+image_type: container
+image_name: llama-stack-rh
