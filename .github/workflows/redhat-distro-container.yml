@@ -50,8 +50,9 @@ jobs:
       # Model names include provider prefixes for consistency
       VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
       VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
-      EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
+      EMBEDDING_MODEL: vllm-embedding/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
+      VLLM_EMBEDDING_URL: http://localhost:8001/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
     strategy:
       matrix:
@@ -68,7 +69,6 @@ jobs:
         uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
         with:
           python-version: 3.12
-          version: 0.7.6
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -150,7 +150,8 @@ jobs:
           mkdir -p logs
 
           docker logs llama-stack > logs/llama-stack.log 2>&1 || echo "Failed to get llama-stack logs" > logs/llama-stack.log
-          docker logs vllm > logs/vllm.log 2>&1 || echo "Failed to get vllm logs" > logs/vllm.log
+          docker logs vllm-inference > logs/vllm-inference.log 2>&1 || echo "Failed to get vllm-inference logs" > logs/vllm-inference.log
+          docker logs vllm-embedding > logs/vllm-embedding.log 2>&1 || echo "Failed to get vllm-embedding logs" > logs/vllm-embedding.log
           docker logs postgres > logs/postgres.log 2>&1 || echo "Failed to get postgres logs" > logs/postgres.log
 
           # Gather system information
@@ -182,11 +183,11 @@ jobs:
           path: logs/
           retention-days: 7
 
-      - name: cleanup
+      - name: Cleanup
         if: always()
         shell: bash
         run: |
-          docker rm -f vllm llama-stack postgres
+          docker rm -f vllm-inference vllm-embedding llama-stack postgres
 
       - name: Log in to Quay.io
         id: login

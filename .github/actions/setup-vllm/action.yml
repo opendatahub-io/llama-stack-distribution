@@ -1,14 +1,14 @@
-name: Setup VLLM
-description: Start VLLM
+name: Setup vLLM
+description: Start vLLM
 runs:
   using: "composite"
   steps:
-    - name: Start VLLM
+    - name: Start vLLM container for inference
       shell: bash
       run: |
-        # Start vllm container
+        # start vLLM container
         docker run -d \
-          --name vllm \
+          --name vllm-inference \
           --privileged=true \
           --net=host \
           quay.io/higginsd/vllm-cpu:65393ee064-qwen3 \
@@ -21,8 +21,27 @@ runs:
           --max-model-len 8192
 
           # Wait for vllm to be ready
-          echo "Waiting for vllm to be ready..."
+          echo "Waiting for vllm inference container to be ready..."
           timeout 900 bash -c 'until curl -fsS http://localhost:8000/health >/dev/null; do
-            echo "Waiting for vllm..."
+            echo "Waiting for vllm inference container..."
+            sleep 5
+          done'
+
+    - name: Start vLLM container for embeddings
+      shell: bash
+      run: |
+        # start vllm container
+        docker run -d \
+          --name vllm-embedding \
+          --privileged=true \
+          --net=host \
+          quay.io/nweinber/vllm-cpu:ac9f933-granite125m \
+          --host 0.0.0.0 \
+          --port 8001
+
+          # Wait for vllm to be ready
+          echo "Waiting for vllm embedding container to be ready..."
+          timeout 900 bash -c 'until curl -fsS http://localhost:8001/health >/dev/null; do
+            echo "Waiting for vllm embedding container..."
             sleep 5
           done'
