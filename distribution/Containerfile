@@ -4,7 +4,7 @@ FROM registry.access.redhat.com/ubi9/python-312@sha256:95ec8d3ee9f875da011639213
 WORKDIR /opt/app-root
 RUN pip install uv
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
-RUN uv pip install --upgrade \
+RUN uv pip install --prerelease=allow --upgrade \
     'kfp-kubernetes==2.14.6' \
     'pyarrow>=21.0.0' \
     'botocore==1.35.88' \
@@ -12,7 +12,7 @@ RUN uv pip install --upgrade \
     'aiobotocore==2.16.1' \
     'ibm-cos-sdk-core==2.14.2' \
     'ibm-cos-sdk==2.14.2'
-RUN uv pip install \
+RUN uv pip install --prerelease=allow \
     'datasets>=4.0.0' \
     'mcp>=1.23.0' \
     'pymilvus[milvus-lite]>=2.4.10' \
@@ -49,16 +49,16 @@ RUN uv pip install \
     tqdm \
     transformers \
     uvicorn
-RUN uv pip install \
-    llama_stack_provider_lmeval==0.4.1
-RUN uv pip install \
+RUN uv pip install --prerelease=allow \
+    llama_stack_provider_lmeval==0.4.2
+RUN uv pip install --prerelease=allow \
     llama_stack_provider_ragas[inline]==0.5.1
-RUN uv pip install \
+RUN uv pip install --prerelease=allow \
     llama_stack_provider_ragas[remote]==0.5.1
-RUN uv pip install \
+RUN uv pip install --prerelease=allow \
     llama_stack_provider_trustyai_fms==0.3.2
-RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
-RUN uv pip install --no-deps sentence-transformers
+RUN uv pip install --prerelease=allow --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
+RUN uv pip install --prerelease=allow --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.0+rhai0
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/config.yaml ${APP_ROOT}/config.yaml
