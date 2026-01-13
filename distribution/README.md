@@ -15,7 +15,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
 | eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
-| eval | remote::trustyai_lmeval | Yes (version 0.4.1) | ✅ | N/A |
+| eval | remote::trustyai_lmeval | Yes (version 0.4.2) | ✅ | N/A |
 | eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
 | files | remote::s3 | No | ❌ | Set the `ENABLE_S3` environment variable |
