@@ -38,6 +38,7 @@ RUN uv pip install --prerelease=allow \
     psycopg2-binary \
     pymongo \
     pypdf \
+    qdrant-client \
     redis \
     requests \
     safetensors \

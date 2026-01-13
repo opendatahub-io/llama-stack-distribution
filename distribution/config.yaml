@@ -96,6 +96,22 @@ providers:
       persistence:
         backend: kv_default
         namespace: vector_io::pgvector
+  - provider_id: ${env.ENABLE_QDRANT:+qdrant-remote}
+    provider_type: remote::qdrant
+    config:
+      location: ${env.QDRANT_LOCATION:=}
+      url: ${env.QDRANT_URL:=}
+      port: ${env.QDRANT_PORT:=6333}
+      grpc_port: ${env.QDRANT_GRPC_PORT:=6334}
+      prefer_grpc: ${env.QDRANT_PREFER_GRPC:=false}
+      https: ${env.QDRANT_HTTPS:=}
+      api_key: ${env.QDRANT_API_KEY:=}
+      prefix: ${env.QDRANT_PREFIX:=}
+      timeout: ${env.QDRANT_TIMEOUT:=}
+      host: ${env.QDRANT_HOST:=}
+      persistence:
+        backend: kv_default
+        namespace: vector_io::qdrant_remote
   safety:
     - provider_id: trustyai_fms
       provider_type: remote::trustyai_fms
