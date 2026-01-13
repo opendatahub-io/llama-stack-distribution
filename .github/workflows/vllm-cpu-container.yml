@@ -1,0 +1,158 @@
+name: Build, test, and publish vLLM CPU Containers
+
+on:
+  pull_request:
+    branches:
+      - main
+      - rhoai-v*
+      - konflux-poc*
+    types:
+      - opened
+      - synchronize
+    paths:
+      - 'vllm/Containerfile'
+  push:
+    branches:
+      - main
+      - rhoai-v*
+    paths:
+      - 'vllm/Containerfile'
+  workflow_dispatch:
+    inputs:
+      inference_model:
+        description: 'Inference model to preload onto vLLM image - default is Qwen/Qwen3-0.6B'
+        type: string
+      embedding_model:
+        description: 'Embedding model to preload onto vLLM image - default is ibm-granite/granite-embedding-125m-english'
+        type: string
+
+env:
+  REGISTRY: quay.io
+  IMAGE_NAME: quay.io/opendatahub/vllm-cpu # tags for the image will be added dynamically
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+    env:
+      INFERENCE_MODEL: ${{ github.event.inputs.inference_model || 'Qwen/Qwen3-0.6B' }}
+      EMBEDDING_MODEL: ${{ github.event.inputs.embedding_model || 'ibm-granite/granite-embedding-125m-english' }}
+    strategy:
+      matrix:
+        platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set image tag components
+        run: |
+          INFERENCE_TEMP="${INFERENCE_MODEL#*/}"
+          EMBEDDING_TEMP="${EMBEDDING_MODEL#*/}"
+          echo "INFERENCE_TAG=${INFERENCE_TEMP%-*}" >> "$GITHUB_ENV"
+          echo "EMBEDDING_TAG=${EMBEDDING_TEMP%-*}" >> "$GITHUB_ENV"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        with:
+          python-version: 3.12
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Free disk space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: vllm/Containerfile
+          platforms: ${{ matrix.platform }}
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:${{ env.INFERENCE_TAG }}-${{ env.EMBEDDING_TAG }}
+          load: true  # needed to load for smoke test
+          build-args: |
+            INFERENCE_MODEL=${{ env.INFERENCE_MODEL }}
+            EMBEDDING_MODEL=${{ env.EMBEDDING_MODEL }}
+
+      - name: Setup vllm for inference test
+        if: github.event_name != 'workflow_dispatch'
+        id: vllm-inference
+        uses: ./.github/actions/setup-vllm
+        env:
+          VLLM_IMAGE: ${{ env.IMAGE_NAME }}:${{ env.INFERENCE_TAG }}-${{ env.EMBEDDING_TAG }}
+          VLLM_MODE: 'inference'
+
+      - name: Setup vllm for embedding test
+        if: github.event_name != 'workflow_dispatch'
+        id: vllm-embedding
+        uses: ./.github/actions/setup-vllm
+        env:
+          VLLM_IMAGE: ${{ env.IMAGE_NAME }}:${{ env.INFERENCE_TAG }}-${{ env.EMBEDDING_TAG }}
+          VLLM_MODE: 'embedding'
+
+      - name: Gather logs and debugging information
+        if: always()
+        shell: bash
+        run: |
+          # Create logs directory
+          mkdir -p logs
+
+          docker logs vllm-inference > logs/vllm-inference.log 2>&1 || echo "Failed to get vllm-inference logs" > logs/vllm-inference.log
+          docker logs vllm-embedding > logs/vllm-embedding.log 2>&1 || echo "Failed to get vllm-embedding logs" > logs/vllm-embedding.log
+
+          # Gather system information
+          echo "=== System information ==="
+          {
+            echo "Disk usage:"
+            df -h
+            echo "Memory usage:"
+            free -h
+            echo "Docker images:"
+            docker images
+            echo "Docker containers:"
+            docker ps -a
+          } > logs/system-info.log 2>&1
+
+      - name: Upload logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ci-logs-${{ github.sha }}
+          path: logs/
+          retention-days: 7
+
+      - name: Cleanup vllm containers
+        if: always()
+        shell: bash
+        run: |
+          docker rm -f vllm-inference vllm-embedding
+
+      - name: Log in to Quay.io
+        id: login
+        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Publish image to Quay.io
+        id: publish
+        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: vllm/Containerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.INFERENCE_TAG }}-${{ env.EMBEDDING_TAG }}
+          build-args: |
+            INFERENCE_MODEL=${{ env.INFERENCE_MODEL }}
+            EMBEDDING_MODEL=${{ env.EMBEDDING_MODEL }}
