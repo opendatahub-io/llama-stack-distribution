@@ -136,7 +136,10 @@ def get_dependencies():
                 continue
 
             # New format: just packages, possibly with flags
-            cmd_parts = ["RUN", "uv", "pip", "install"]
+            # Fixes: https://issues.redhat.com/browse/RHAIENG-2710
+            # TODO: remove this once we have a stable version of kubernetes.
+            # Use --prerelease=allow to permit pre-release dependencies (e.g. kubernetes==35.0.0a1)
+            cmd_parts = ["RUN", "uv", "pip", "install", "--prerelease=allow"]
             packages_str = line
 
             # Parse packages and flags from the line
@@ -219,7 +222,7 @@ def get_dependencies():
         # Add pinned dependencies FIRST to ensure version compatibility
         if PINNED_DEPENDENCIES:
             pinned_packages = " \\\n    ".join(PINNED_DEPENDENCIES)
-            pinned_cmd = f"RUN uv pip install --upgrade \\\n    {pinned_packages}"
+            pinned_cmd = f"RUN uv pip install --prerelease=allow --upgrade \\\n    {pinned_packages}"
             all_deps.append(pinned_cmd)
 
         all_deps.extend(sorted(standard_deps))  # Regular pip installs
