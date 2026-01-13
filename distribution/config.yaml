@@ -258,7 +258,43 @@ registered_resources:
   vector_dbs: []
   datasets: []
   scoring_fns: []
-  benchmarks: []
+  benchmarks:
+  - benchmark_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_garak::owasp_llm_top10}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: owasp_llm_top10
+  - benchmark_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_garak::avid_security}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: avid_security
+  - benchmark_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_garak::avid_ethics}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: avid_ethics
+  - benchmark_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_garak::avid_performance}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: avid_performance
+  - benchmark_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_garak::quick}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: quick
+  - benchmark_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_garak::standard}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: standard
   tool_groups:
   - toolgroup_id: builtin::websearch
     provider_id: tavily-search
