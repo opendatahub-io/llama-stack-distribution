@@ -15,7 +15,7 @@ import re
 import shlex
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "v0.4.0+rhai0"
+CURRENT_LLAMA_STACK_VERSION = "v0.4.1+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
