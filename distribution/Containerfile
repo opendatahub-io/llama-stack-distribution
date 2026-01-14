@@ -14,6 +14,7 @@ RUN uv pip install --prerelease=allow --upgrade \
     'ibm-cos-sdk==2.14.2'
 RUN uv pip install --prerelease=allow \
     'datasets>=4.0.0' \
+    'fonttools>=4.60.2' \
     'mcp>=1.23.0' \
     'pymilvus[milvus-lite]>=2.4.10' \
     aiosqlite \
@@ -59,7 +60,7 @@ RUN uv pip install --prerelease=allow \
     llama_stack_provider_trustyai_fms==0.3.2
 RUN uv pip install --prerelease=allow --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --prerelease=allow --no-deps sentence-transformers
-RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.0+rhai0
+RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.1+rhai0
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/config.yaml ${APP_ROOT}/config.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
