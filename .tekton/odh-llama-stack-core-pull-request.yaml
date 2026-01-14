@@ -16,7 +16,7 @@ metadata:
     appstudio.openshift.io/application: open-data-hub-builds
     appstudio.openshift.io/component: odh-llama-stack-core
     pipelines.appstudio.openshift.io/type: build
-  name: odh-llama-stack-cor-on-pull-request
+  name: odh-llama-stack-core-on-pull-request
   namespace: open-data-hub-tenant
 spec:
   params:
