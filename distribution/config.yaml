@@ -160,7 +160,7 @@ providers:
         pipelines_api_token: ${env.KUBEFLOW_PIPELINES_TOKEN:=}
   - provider_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak_remote}
     provider_type: remote::trustyai_garak
-    module: llama_stack_provider_trustyai_garak==0.1.7
+    module: llama_stack_provider_trustyai_garak==0.1.8
     config:
       llama_stack_url: ${env.KUBEFLOW_LLAMA_STACK_URL:=}
       kubeflow_config:
