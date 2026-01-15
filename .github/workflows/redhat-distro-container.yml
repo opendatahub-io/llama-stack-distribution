@@ -46,10 +46,12 @@ jobs:
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
       VERTEX_AI_LOCATION: us-central1
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-      # Deployment configuration - Llama Stack will support both vLLM and Vertex AI
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # Deployment configuration - Llama Stack will support vLLM, Vertex AI, and OpenAI
       # Model names include provider prefixes for consistency
       VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
       VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
+      OPENAI_INFERENCE_MODEL: openai/gpt-4o-mini
       EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
@@ -106,11 +108,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Unset VERTEX_AI_PROJECT for fork PRs (secrets not available)
+      - name: Unset cloud provider credentials for fork PRs (secrets not available)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
         run: |
-          echo "Unsetting VERTEX_AI_PROJECT for fork PR (secrets not available)"
+          echo "Unsetting cloud provider credentials for fork PR (secrets not available)"
           echo "VERTEX_AI_PROJECT=" >> "$GITHUB_ENV"
+          echo "OPENAI_API_KEY=" >> "$GITHUB_ENV"
 
       - name: Authenticate to Google Cloud (Vertex)
         if: github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
