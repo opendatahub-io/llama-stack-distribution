@@ -57,7 +57,7 @@ jobs:
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
     strategy:
       matrix:
-        platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
+        platform: [linux/amd64] # Build AMD64 for testing (load: true only works for single platform)
     permissions:
       id-token: write # for Google Cloud authentication
       contents: read
@@ -95,7 +95,7 @@ jobs:
           python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
-      - name: Build image
+      - name: Build image (AMD64 for testing)
         id: build
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
@@ -105,6 +105,19 @@ jobs:
           push: false
           tags: ${{ env.IMAGE_NAME }}:${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
           load: true  # needed to load for smoke test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build image (ARM64 verification)
+        id: build-arm64
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: distribution/Containerfile
+          platforms: linux/arm64
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}-arm64', env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}-arm64', github.sha) }}
+          load: false  # Only verify it builds, don't load (can't load ARM64 on AMD64 runner)
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -200,14 +213,14 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Publish image to Quay.io
+      - name: Publish multi-arch image to Quay.io
         id: publish
         if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: distribution/Containerfile
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ github.event_name == 'workflow_dispatch' && format('{0}:source-{1}-{2}', env.IMAGE_NAME, env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}:{1}{2}', env.IMAGE_NAME, github.sha, github.ref == 'refs/heads/main' && format(',{0}:latest', env.IMAGE_NAME) || (startsWith(github.ref, 'refs/heads/rhoai-v') && format(',{0}:{1}-latest', env.IMAGE_NAME, github.ref_name)) || '') }}
           cache-from: type=gha
