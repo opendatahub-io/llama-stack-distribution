@@ -63,3 +63,17 @@ pull_request_rules:
     label:
       remove:
         - needs-rebase
+
+- name: remind about Konflux Dockerfile when Containerfile changes
+  conditions:
+    - files~=^distribution/Containerfile.in$
+    - -closed
+  actions:
+    comment:
+      message: >
+        ⚠️ **Heads up!** This PR modifies `distribution/Containerfile.in`.
+
+        A corresponding change may be needed in the Konflux Dockerfile:
+        https://github.com/red-hat-data-services/llama-stack-distribution/blob/main/Dockerfile.konflux
+
+        Please verify if the changes need to be synchronized.
