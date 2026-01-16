@@ -145,7 +145,7 @@ providers:
     module: llama_stack_provider_ragas.inline==0.5.1
     config:
       embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
-  - provider_id: ${env.KUBEFLOW_LLAMA_STACK_URL:+trustyai_ragas_remote}
+  - provider_id: ${env.ENABLE_KUBEFLOW_RAGAS:+trustyai_ragas_remote}
     provider_type: remote::trustyai_ragas
     module: llama_stack_provider_ragas.remote==0.5.1
     config:
@@ -272,37 +272,37 @@ storage:
       backend: kv_default
 registered_resources:
   benchmarks:
-  - benchmark_id: trustyai_garak::owasp_llm_top10
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::owasp_llm_top10}
     dataset_id: garak
     scoring_functions:
       - garak_scoring
     provider_id: trustyai_garak_remote
     provider_benchmark_id: owasp_llm_top10
-  - benchmark_id: trustyai_garak::avid_security
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::avid_security}
     dataset_id: garak
     scoring_functions:
       - garak_scoring
     provider_id: trustyai_garak_remote
     provider_benchmark_id: avid_security
-  - benchmark_id: trustyai_garak::avid_ethics
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::avid_ethics}
     dataset_id: garak
     scoring_functions:
       - garak_scoring
     provider_id: trustyai_garak_remote
     provider_benchmark_id: avid_ethics
-  - benchmark_id: trustyai_garak::avid_performance
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::avid_performance}
     dataset_id: garak
     scoring_functions:
       - garak_scoring
     provider_id: trustyai_garak_remote
     provider_benchmark_id: avid_performance
-  - benchmark_id: trustyai_garak::quick
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::quick}
     dataset_id: garak
     scoring_functions:
       - garak_scoring
     provider_id: trustyai_garak_remote
     provider_benchmark_id: quick
-  - benchmark_id: trustyai_garak::standard
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::standard}
     dataset_id: garak
     scoring_functions:
       - garak_scoring
