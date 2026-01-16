@@ -1,4 +1,4 @@
-FROM public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo AS base
+FROM public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.12.0 AS base
 
 WORKDIR /workspace/
 
