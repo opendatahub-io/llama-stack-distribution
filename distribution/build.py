@@ -35,6 +35,7 @@ PINNED_DEPENDENCIES = [
 source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
 RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_version}"""
 
+
 def get_llama_stack_install(llama_stack_version):
     # We use the same version for llama-stack and llama-stack-client and just remove the downstream
     # tag +rhai[0-9]+
