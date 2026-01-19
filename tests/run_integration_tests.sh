@@ -92,8 +92,10 @@ function main() {
     echo "  WORK_DIR: $WORK_DIR"
     echo "  VLLM_INFERENCE_MODEL: $VLLM_INFERENCE_MODEL"
     echo "  VERTEX_AI_INFERENCE_MODEL: $VERTEX_AI_INFERENCE_MODEL"
+    echo "  OPENAI_INFERENCE_MODEL: $OPENAI_INFERENCE_MODEL"
     echo "  EMBEDDING_MODEL: $EMBEDDING_MODEL"
     echo "  VERTEX_AI_PROJECT: ${VERTEX_AI_PROJECT:-<not set>}"
+    echo "  OPENAI_API_KEY: ${OPENAI_API_KEY:+<set>}"
 
     clone_llama_stack
 
@@ -106,6 +108,14 @@ function main() {
         models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
     else
         echo "VERTEX_AI_PROJECT is not set, skipping Vertex AI models"
+    fi
+
+    # Only include OpenAI models if OPENAI_API_KEY is set
+    if [ -n "${OPENAI_API_KEY:-}" ]; then
+        echo "OPENAI_API_KEY is set, including OpenAI models in tests"
+        models_to_test+=("$OPENAI_INFERENCE_MODEL")
+    else
+        echo "OPENAI_API_KEY is not set, skipping OpenAI models"
     fi
 
     for model in "${models_to_test[@]}"; do

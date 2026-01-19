@@ -42,6 +42,11 @@ function start_and_wait_for_llama_stack_container {
     fi
   fi
 
+  # Only add OpenAI configuration if OPENAI_API_KEY is set
+  if [ -n "${OPENAI_API_KEY:-}" ]; then
+    docker_args+=(--env "OPENAI_API_KEY=$OPENAI_API_KEY")
+  fi
+
   docker_args+=(--name llama-stack "$IMAGE_NAME:$GITHUB_SHA")
 
   # Start llama stack
@@ -177,6 +182,15 @@ main() {
     inference_models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
   else
     echo "===> VERTEX_AI_PROJECT is not set, skipping Vertex AI models"
+  fi
+
+  # Only include OpenAI models if OPENAI_API_KEY is set
+  if [ -n "${OPENAI_API_KEY:-}" ]; then
+    echo "===> OPENAI_API_KEY is set, including OpenAI models in tests"
+    models_to_test+=("$OPENAI_INFERENCE_MODEL")
+    inference_models_to_test+=("$OPENAI_INFERENCE_MODEL")
+  else
+    echo "===> OPENAI_API_KEY is not set, skipping OpenAI models"
   fi
 
   echo "===> Testing model list for all models..."

@@ -4,7 +4,7 @@
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with the Open Data Hub version of Llama Stack version [0.4.0+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.4.0+rhai0)
+The image is currently shipping with the Open Data Hub version of Llama Stack version [0.4.1+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.4.1+rhai0)
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
@@ -15,7 +15,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
 | eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
-| eval | remote::trustyai_lmeval | Yes (version 0.4.1) | ✅ | N/A |
+| eval | remote::trustyai_lmeval | Yes (version 0.4.2) | ✅ | N/A |
 | eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `KUBEFLOW_LLAMA_STACK_URL` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
 | files | remote::s3 | No | ❌ | Set the `ENABLE_S3` environment variable |
@@ -39,3 +39,4 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | vector_io | inline::milvus | No | ✅ | N/A |
 | vector_io | remote::milvus | No | ❌ | Set the `MILVUS_ENDPOINT` environment variable |
 | vector_io | remote::pgvector | No | ❌ | Set the `ENABLE_PGVECTOR` environment variable |
+| vector_io | remote::qdrant | No | ❌ | Set the `ENABLE_QDRANT` environment variable |
