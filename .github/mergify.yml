@@ -1,8 +1,36 @@
 pull_request_rules:
+- name: auto-merge github-deps
+  description: >
+    Automatic merge of dependency update PRs (single approval required)
+  conditions:
+    - title~=chore\(github-deps\)
+    - "#approved-reviews-by>=1"
+    - "#changes-requested-reviews-by=0"
+    - or:
+      - base=main
+      - base~=^rhoai-v
+    - label!=do-not-merge
+    - label!=needs-rebase
+    - check-success=pre-commit
+    - check-success=title-check
+  actions:
+    merge:
+      method: merge
+      commit_message_template: |
+        {{ title }} (#{{ number }})
+
+        {{ body }}
+
+        {% for user in approved_reviews_by %}
+        Approved-by: {{ user }}
+        {% endfor %}
+    delete_head_branch:
+
 - name: auto-merge
   description: >
     Automatic merge of PRs to main
   conditions:
+    - -title~=chore\(github-deps\)
     - "#approved-reviews-by>=2"
     - "#changes-requested-reviews-by=0"
     - or:
