@@ -12,7 +12,6 @@ import subprocess
 import sys
 import os
 import re
-import shlex
 from pathlib import Path
 
 CURRENT_LLAMA_STACK_VERSION = "v0.4.2+rhai0"
@@ -124,7 +123,7 @@ def install_llama_stack_from_source(llama_stack_version):
 
 def get_dependencies():
     """Execute the llama stack build command and capture dependencies."""
-    cmd = "llama stack list-deps distribution/config.yaml"
+    cmd = "llama stack list-deps --format uv distribution/config.yaml"
     try:
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, check=True
@@ -136,56 +135,19 @@ def get_dependencies():
         no_cache = []
 
         for line in result.stdout.splitlines():
-            line = line.strip()
-            if not line:  # Skip empty lines
+            raw_line = line.strip()
+            if not raw_line:
                 continue
 
-            # New format: just packages, possibly with flags
-            # Fixes: https://issues.redhat.com/browse/RHAIENG-2710
-            # TODO: remove this once we have a stable version of kubernetes.
-            # Use --prerelease=allow to permit pre-release dependencies (e.g. kubernetes==35.0.0a1)
-            cmd_parts = ["RUN", "uv", "pip", "install", "--prerelease=allow"]
-            packages_str = line
-
-            # Parse packages and flags from the line
-            # Use shlex.split to properly handle quoted package names
-            parts_list = shlex.split(packages_str)
-            packages = []
-            flags = []
-            extra_index_url = None
-
-            i = 0
-            while i < len(parts_list):
-                if parts_list[i] == "--extra-index-url" and i + 1 < len(parts_list):
-                    extra_index_url = parts_list[i + 1]
-                    flags.extend([parts_list[i], parts_list[i + 1]])
-                    i += 2
-                elif parts_list[i] == "--index-url" and i + 1 < len(parts_list):
-                    flags.extend([parts_list[i], parts_list[i + 1]])
-                    i += 2
-                elif parts_list[i] in ["--no-deps", "--no-cache"]:
-                    flags.append(parts_list[i])
-                    i += 1
-                else:
-                    packages.append(parts_list[i])
-                    i += 1
-
-            # Sort and deduplicate packages
-            packages = sorted(set(packages))
-
-            # Add quotes to packages with > or < to prevent bash redirection
-            packages = [
-                f"'{package}'" if (">" in package or "<" in package) else package
-                for package in packages
-            ]
+            # Format: uv pip install <packages/flags>
+            deps_line = raw_line[len("uv pip install ") :]
 
             # Modify pymilvus package to include milvus-lite extra
-            packages = [
-                package.replace("pymilvus", "pymilvus[milvus-lite]")
-                if "pymilvus" in package and "[milvus-lite]" not in package
-                else package
-                for package in packages
-            ]
+            deps_line = re.sub(
+                r"\bpymilvus(?!\[milvus-lite\])\b",
+                "pymilvus[milvus-lite]",
+                deps_line,
+            )
 
             # Convert namespace packages like llama_stack_provider_ragas.extra==0.5.1
             # to extras syntax llama_stack_provider_ragas[extra]==0.5.1
@@ -194,31 +156,26 @@ def get_dependencies():
             # We are not sending a patch to llama-stack upstream because not everyone python
             # sub-module is a package, we just handle this here instead for our own packages.
             # Even though pip will just show a warning if the extra does not exist
-            packages = [
-                re.sub(
-                    r"\.([a-zA-Z_][a-zA-Z0-9_]*)(==|>=|<=|>|<|~=|!=)",
-                    r"[\1]\2",
-                    package,
-                )
-                for package in packages
-            ]
-            packages = sorted(set(packages))
+            deps_line = re.sub(
+                r"\.([a-zA-Z_][a-zA-Z0-9_]*)(==|>=|<=|>|<|~=|!=)",
+                r"[\1]\2",
+                deps_line,
+            )
+
+            # Fixes: https://issues.redhat.com/browse/RHAIENG-2710
+            # TODO: remove this once we have a stable version of kubernetes.
+            # Use --prerelease=allow to permit pre-release dependencies (e.g. kubernetes==35.0.0a1)
+            full_cmd = f"RUN uv pip install --prerelease=allow {deps_line}".strip()
 
             # Build the command based on flags
-            if extra_index_url or "--index-url" in flags:
+            if "--extra-index-url" in deps_line or "--index-url" in deps_line:
                 # Torch dependencies with extra index URL
-                full_cmd = " ".join(cmd_parts + flags + packages)
                 torch_deps.append(full_cmd)
-            elif "--no-deps" in flags:
-                full_cmd = " ".join(cmd_parts + flags + packages)
+            elif "--no-deps" in deps_line:
                 no_deps.append(full_cmd)
-            elif "--no-cache" in flags:
-                full_cmd = " ".join(cmd_parts + flags + packages)
+            elif "--no-cache" in deps_line:
                 no_cache.append(full_cmd)
             else:
-                # Standard dependencies with multi-line formatting
-                formatted_packages = " \\\n    ".join(packages)
-                full_cmd = f"{' '.join(cmd_parts)} \\\n    {formatted_packages}"
                 standard_deps.append(full_cmd)
 
         # Combine all dependencies in specific order
