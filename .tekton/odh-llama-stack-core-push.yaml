@@ -8,12 +8,12 @@ metadata:
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" && ( "distribution/***".pathChanged() || ".tekton/odh-llama-stack-core-push.yaml".pathChanged()
+      == "main" && ( "distribution/**".pathChanged() || ".tekton/odh-llama-stack-core-push.yaml".pathChanged()
       )
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: opendatahub-builds
-    appstudio.openshift.io/component: odh-llama-stack-core
+    appstudio.openshift.io/component: odh-llama-stack-core-ci
     pipelines.appstudio.openshift.io/type: build
   name: odh-llama-stack-core-on-push
   namespace: open-data-hub-tenant
