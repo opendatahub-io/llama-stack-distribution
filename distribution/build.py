@@ -15,7 +15,7 @@ import re
 import shlex
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "v0.4.1+rhai0"
+CURRENT_LLAMA_STACK_VERSION = "v0.4.2+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
@@ -32,15 +32,20 @@ PINNED_DEPENDENCIES = [
     "'ibm-cos-sdk==2.14.2'",
 ]
 
-source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}"""
+source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
+RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_version}"""
 
 
 def get_llama_stack_install(llama_stack_version):
+    # We use the same version for llama-stack and llama-stack-client and just remove the downstream
+    # tag +rhai[0-9]+
+    llama_stack_client_version = llama_stack_version.split("+")[0]
     # If the version is a commit SHA or a short commit SHA, we need to install from source
     if is_install_from_source(llama_stack_version):
         print(f"Installing llama-stack from source: {llama_stack_version}")
         return source_install_command.format(
-            llama_stack_version=llama_stack_version
+            llama_stack_version=llama_stack_version,
+            llama_stack_client_version=llama_stack_client_version,
         ).rstrip()
 
 
