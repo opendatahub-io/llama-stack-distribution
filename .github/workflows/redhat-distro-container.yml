@@ -134,7 +134,6 @@ jobs:
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          create_credentials_file: true
 
       - name: Setup vllm for image test
         if: github.event_name != 'workflow_dispatch'
