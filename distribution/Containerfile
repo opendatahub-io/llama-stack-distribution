@@ -12,57 +12,14 @@ RUN uv pip install --prerelease=allow --upgrade \
     'aiobotocore==2.16.1' \
     'ibm-cos-sdk-core==2.14.2' \
     'ibm-cos-sdk==2.14.2'
-RUN uv pip install --prerelease=allow \
-    'datasets>=4.0.0' \
-    'fonttools>=4.60.2' \
-    'mcp>=1.23.0' \
-    'pymilvus[milvus-lite]>=2.4.10' \
-    aiosqlite \
-    asyncpg \
-    autoevals \
-    boto3 \
-    chardet \
-    einops \
-    faiss-cpu \
-    fastapi \
-    fire \
-    google-cloud-aiplatform \
-    httpx \
-    litellm \
-    matplotlib \
-    nltk \
-    numpy \
-    opentelemetry-exporter-otlp-proto-http \
-    opentelemetry-sdk \
-    pandas \
-    pillow \
-    psycopg2-binary \
-    pymongo \
-    pypdf \
-    qdrant-client \
-    redis \
-    requests \
-    safetensors \
-    scikit-learn \
-    scipy \
-    sentencepiece \
-    sqlalchemy[asyncio] \
-    tokenizers \
-    tqdm \
-    transformers \
-    uvicorn
-RUN uv pip install --prerelease=allow \
-    llama_stack_provider_lmeval==0.4.2
-RUN uv pip install --prerelease=allow \
-    llama_stack_provider_ragas[inline]==0.5.1
-RUN uv pip install --prerelease=allow \
-    llama_stack_provider_ragas[remote]==0.5.1
-RUN uv pip install --prerelease=allow \
-    llama_stack_provider_trustyai_fms==0.3.2
-RUN uv pip install --prerelease=allow \
-    llama_stack_provider_trustyai_garak==0.1.8
-RUN uv pip install --prerelease=allow --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
-RUN uv pip install --prerelease=allow --no-deps sentence-transformers
+RUN uv pip install --prerelease=allow 'llama_stack_provider_lmeval==0.4.2'
+RUN uv pip install --prerelease=allow 'llama_stack_provider_ragas[inline]==0.5.1'
+RUN uv pip install --prerelease=allow 'llama_stack_provider_ragas[remote]==0.5.1'
+RUN uv pip install --prerelease=allow 'llama_stack_provider_trustyai_fms==0.3.2'
+RUN uv pip install --prerelease=allow 'llama_stack_provider_trustyai_garak==0.1.8'
+RUN uv pip install --prerelease=allow nltk sqlalchemy[asyncio] google-cloud-aiplatform tqdm numpy 'fonttools>=4.60.2' chardet 'datasets>=4.0.0' 'mcp>=1.23.0' asyncpg safetensors redis aiosqlite matplotlib litellm scipy requests qdrant-client psycopg2-binary sentencepiece transformers pillow pandas boto3 faiss-cpu tokenizers scikit-learn pymongo pypdf autoevals 'pymilvus[milvus-lite]>=2.4.10' 'pymilvus[milvus-lite]>=2.4.10' einops aiosqlite fastapi fire httpx uvicorn opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
+RUN uv pip install --prerelease=allow torch torchvision 'torchao>=0.12.0' --extra-index-url https://download.pytorch.org/whl/cpu
+RUN uv pip install --prerelease=allow sentence-transformers --no-deps
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.2+rhai0
 RUN uv pip install --no-cache --no-deps llama-stack-client==v0.4.2
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
