@@ -15,8 +15,9 @@ import re
 import shlex
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "v0.4.2+rhai0"
+CURRENT_LLAMA_STACK_VERSION = "v0.4.2.1+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
+LLAMA_STACK_CLIENT_VERSION = "v0.4.2"  # Set to None to auto-derive from LLAMA_STACK_VERSION, or set explicit version
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
 ]
@@ -37,9 +38,12 @@ RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_
 
 
 def get_llama_stack_install(llama_stack_version):
-    # We use the same version for llama-stack and llama-stack-client and just remove the downstream
-    # tag +rhai[0-9]+
-    llama_stack_client_version = llama_stack_version.split("+")[0]
+    # Use explicit client version if set, otherwise derive from llama_stack_version by removing +rhai suffix
+    llama_stack_client_version = (
+        LLAMA_STACK_CLIENT_VERSION
+        if LLAMA_STACK_CLIENT_VERSION
+        else llama_stack_version.split("+")[0]
+    )
     # If the version is a commit SHA or a short commit SHA, we need to install from source
     if is_install_from_source(llama_stack_version):
         print(f"Installing llama-stack from source: {llama_stack_version}")
