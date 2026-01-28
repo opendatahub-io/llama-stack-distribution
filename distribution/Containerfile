@@ -63,7 +63,7 @@ RUN uv pip install --prerelease=allow \
     llama_stack_provider_trustyai_garak==0.1.8
 RUN uv pip install --prerelease=allow --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --prerelease=allow --no-deps sentence-transformers
-RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.2+rhai0
+RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.2.1+rhai0
 RUN uv pip install --no-cache --no-deps llama-stack-client==v0.4.2
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/config.yaml ${APP_ROOT}/config.yaml
