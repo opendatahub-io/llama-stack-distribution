@@ -100,3 +100,8 @@ env:
   SLACK_WEBHOOK_URL: ${{ env.REGISTRY == 'quay.io' && secrets.WH_SLACK_QUAY || secrets.WH_SLACK_OTHER }}
   # ...
 ```
+
+### Local testing
+
+- **Preview (no send):** Run `scripts/notify_slack_build.sh --preview` with the required env vars set; prints the message to stdout so you can check the format.
+- **Send to your channel:** Use your own webhook URL and a test channel; set `SLACK_WEBHOOK_URL` and run the script (no `--preview`) with the same env vars.

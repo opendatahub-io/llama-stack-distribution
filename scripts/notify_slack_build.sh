@@ -36,11 +36,11 @@ fi
 
 COMMIT_SHA_SHORT="${COMMIT_SHA:0:7}"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-# Optional: BUILD_LABEL (e.g. "RHOAI v3.4.0"), IMAGE_DIGEST (sha256:...), BUILD_NAME (e.g. run id or job name)
+# Optional: BUILD_LABEL (e.g. "RHOAI v3.4.0"), IMAGE_DIGEST (sha256:...), WORKFLOW_RUN_URL (e.g. github.com/.../actions/runs/...)
 BUILD_LABEL="${BUILD_LABEL:-Llama Stack}"
 IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}"
 [[ -n "${IMAGE_DIGEST:-}" ]] && IMAGE_REF="${IMAGE_REF}@${IMAGE_DIGEST}"
-BUILD_NAME="${BUILD_NAME:-$WORKFLOW_URL}"
+WORKFLOW_RUN_URL="${WORKFLOW_URL}"
 
 build_message() {
   # Plain format matching RHOAI devops style
@@ -48,7 +48,7 @@ build_message() {
     ":github-1: *New image is available for ${BUILD_LABEL}* - [${TIMESTAMP}]" \
     "Image: ${IMAGE_REF}" \
     "Commit: ${COMMIT_SHA_SHORT}" \
-    "Build: ${BUILD_NAME}"
+    "<${WORKFLOW_RUN_URL}|View workflow run>"
 }
 
 if [[ "$PREVIEW" == true ]]; then
@@ -85,7 +85,7 @@ normalize_url() {
 
 TEXT=$(build_message)
 # Colored attachment (left border #46567f); blocks with mrkdwn for links/bold/code
-# See: https://docs.slack.dev/messaging/formatting-message-text/#when-to-use-attachments
+# https://docs.slack.dev/messaging/formatting-message-text/#when-to-use-attachments
 PAYLOAD=$(jq -n --arg text "$TEXT" '{
   attachments: [
     {

@@ -243,7 +243,6 @@ jobs:
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          BUILD_NAME: ${{ github.workflow }}-${{ github.run_number }}
         run: bash scripts/notify_slack_build.sh
 
       # Preview the Slack message in the log (PR only). No webhook is called; use this to verify env/context resolution.
@@ -258,7 +257,6 @@ jobs:
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          BUILD_NAME: ${{ github.workflow }}-${{ github.run_number }}
         run: bash scripts/notify_slack_build.sh --preview
 
       - name: Output custom build information
