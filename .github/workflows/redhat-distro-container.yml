@@ -38,9 +38,7 @@ concurrency:
 
 env:
   REGISTRY: quay.io
-  # IMAGE_NAME = registry/org/repo; org can vary (e.g. opendatahub, rhoai). Tags added dynamically.
-  IMAGE_NAME: quay.io/opendatahub/llama-stack
-
+  IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
@@ -234,6 +232,21 @@ jobs:
       - name: Notify Slack on successful image push to Quay
         if: success() && contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         env:
+          SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
+          BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          TRIGGER: ${{ github.event_name }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          COMMIT_SHA: ${{ github.sha }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/notify_slack_build.sh
+
+      - name: Notify Slack on build failure
+        if: failure()
+        env:
+          NOTIFY_FAILURE: '1'
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}

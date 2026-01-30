@@ -13,13 +13,17 @@
 #                        one or more secrets.
 #   If both are set, SLACK_WEBHOOK_URLS wins. If neither is set, skip send (exit 0).
 #
+#   NOTIFY_FAILURE=1 — send a "Build failed" message (red attachment); same webhook(s).
+#
 # Usage:
-#   ./scripts/notify_slack_build.sh           # send to all configured webhooks
+#   ./scripts/notify_slack_build.sh           # send success to all configured webhooks
+#   NOTIFY_FAILURE=1 ./scripts/notify_slack_build.sh  # send failure message
 #   ./scripts/notify_slack_build.sh --preview # print message to stdout, do not send
 
 set -euo pipefail
 
 PREVIEW=false
+NOTIFY_FAILURE="${NOTIFY_FAILURE:-0}"
 if [[ "${1:-}" == "--preview" ]]; then
   PREVIEW=true
 fi
@@ -43,12 +47,20 @@ IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}"
 WORKFLOW_RUN_URL="${WORKFLOW_URL}"
 
 build_message() {
-  # Plain format matching RHOAI devops style
-  printf '%s\n%s\n%s\n%s\n' \
-    ":github-1: *New image is available for ${BUILD_LABEL}* - [${TIMESTAMP}]" \
-    "Image: ${IMAGE_REF}" \
-    "Commit: ${COMMIT_SHA_SHORT}" \
-    "<${WORKFLOW_RUN_URL}|View workflow run>"
+  # Plain format matching RHOAI devops style; failure vs success headline
+  if [[ "${NOTIFY_FAILURE}" == "1" ]]; then
+    printf '%s\n%s\n%s\n%s\n' \
+      "🔴 *Build failed for ${BUILD_LABEL}* - [${TIMESTAMP}]" \
+      "Image: ${IMAGE_REF}" \
+      "Commit: ${COMMIT_SHA_SHORT}" \
+      "<${WORKFLOW_RUN_URL}|View workflow run>"
+  else
+    printf '%s\n%s\n%s\n%s\n' \
+      "🟢 *New image is available for ${BUILD_LABEL}* - [${TIMESTAMP}]" \
+      "Image: ${IMAGE_REF}" \
+      "Commit: ${COMMIT_SHA_SHORT}" \
+      "<${WORKFLOW_RUN_URL}|View workflow run>"
+  fi
 }
 
 if [[ "$PREVIEW" == true ]]; then
@@ -84,12 +96,16 @@ normalize_url() {
 }
 
 TEXT=$(build_message)
-# Colored attachment (left border #46567f); blocks with mrkdwn for links/bold/code
-# https://docs.slack.dev/messaging/formatting-message-text/#when-to-use-attachments
-PAYLOAD=$(jq -n --arg text "$TEXT" '{
+# Attachment color: blue for success, red for failure
+if [[ "${NOTIFY_FAILURE}" == "1" ]]; then
+  ATTACHMENT_COLOR="#d00000"
+else
+  ATTACHMENT_COLOR="#46567f"
+fi
+PAYLOAD=$(jq -n --arg text "$TEXT" --arg color "$ATTACHMENT_COLOR" '{
   attachments: [
     {
-      color: "#46567f",
+      color: $color,
       blocks: [
         {
           type: "section",

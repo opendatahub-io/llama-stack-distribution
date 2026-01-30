@@ -52,7 +52,7 @@ Various tags are maintained for this image:
   - You can also pull an older image built off of `main` by using the SHA of the merge commit as the tag
 - `rhoai-v*-latest` will always point to the latest image that has been built off of a merge to the corresponding `rhoai-v*` branch
 
-You can see the source code that implements this build strategy [here](.github/workflows/redhat-distro-container.yml).
+You can see the source code that implements this build strategy [here](.github/workflows/redhat-distro-container.yml)
 
 ### Running with a custom run YAML
 
