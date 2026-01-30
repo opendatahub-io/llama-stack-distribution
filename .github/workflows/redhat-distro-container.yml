@@ -225,6 +225,52 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Only runs on push/workflow_dispatch (not on pull_request). Fork PRs never run this step.
+      # When secret is unavailable (e.g. push from fork), we skip notification and exit 0.
+      - name: Notify Slack on successful image push to Quay
+        if: success() && contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook secret not configured (e.g. fork), skipping notification"
+            exit 0
+          fi
+          # Ensure we have the full Slack webhook URL (secret may be path or full URL)
+          if [[ "$SLACK_WEBHOOK_URL" != http* ]]; then
+            SLACK_WEBHOOK_URL="https://hooks.slack.com/${SLACK_WEBHOOK_URL#/}"
+          fi
+          IMAGE_TAG="${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(jq -n \
+            --arg text "✅ *Llama Stack* image pushed to Quay (<https://quay.io/repository/opendatahub/llama-stack|*opendatahub/llama-stack*>) successfully
+
+          *Image:* \`${{ env.IMAGE_NAME }}:$IMAGE_TAG\`
+          *Branch:* ${{ github.ref_name }}
+          *Trigger:* ${{ github.event_name }}
+          *Commit:* <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${GITHUB_SHA::7}>
+          *Workflow:* <$RUN_URL|View run>" \
+            '{text: $text}')
+          curl -sf -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK_URL"
+        shell: bash
+
+      # Preview the Slack message in the log (PR only). No webhook is called; use this to verify env/context resolution.
+      - name: Preview Slack message (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          IMAGE_TAG="${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "::group::Slack message preview (not sent)"
+          echo "✅ *Llama Stack* image pushed to Quay (<https://quay.io/repository/opendatahub/llama-stack|*opendatahub/llama-stack*>) successfully"
+          echo ""
+          echo "*Image:* \`${{ env.IMAGE_NAME }}:$IMAGE_TAG\`"
+          echo "*Branch:* ${{ github.ref_name }}"
+          echo "*Trigger:* ${{ github.event_name }}"
+          echo "*Commit:* ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }} (${GITHUB_SHA::7})"
+          echo "*Workflow:* $RUN_URL"
+          echo "::endgroup::"
+        shell: bash
+
       - name: Output custom build information
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         run: |
