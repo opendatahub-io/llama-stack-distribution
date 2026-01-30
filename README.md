@@ -52,7 +52,7 @@ Various tags are maintained for this image:
   - You can also pull an older image built off of `main` by using the SHA of the merge commit as the tag
 - `rhoai-v*-latest` will always point to the latest image that has been built off of a merge to the corresponding `rhoai-v*` branch
 
-You can see the source code that implements this build strategy [here](.github/workflows/redhat-distro-container.yml)
+You can see the source code that implements this build strategy [here](.github/workflows/redhat-distro-container.yml).
 
 ### Running with a custom run YAML
 
@@ -68,3 +68,35 @@ podman run \
 
 > [!IMPORTANT]
 > The distribution image ships with various dependencies already pre-installed. There is *no* guarantee that your custom run YAML will necessarily work with the included dependencies.
+
+## Slack build notifications
+
+Message is sent on successful image push (`push` / `workflow_dispatch`). Script: `scripts/notify_slack_build.sh`.
+
+### One channel
+
+1. Add repo secret: **Settings → Secrets and variables → Actions** → New repository secret
+   - Name: `WH_SLACK_TEAM_LLS_CORE`
+   - Value: webhook URL (e.g. `https://hooks.slack.com/services/...`)
+2. Workflow already uses it; no change.
+
+### More channels (same message to all)
+
+1. Add another secret, e.g. `WH_SLACK_OTHER`, with that channel’s webhook URL.
+2. In [.github/workflows/redhat-distro-container.yml](.github/workflows/redhat-distro-container.yml), in the "Notify Slack on successful image push to Quay" step, set:
+
+```yaml
+env:
+  SLACK_WEBHOOK_URLS: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }},${{ secrets.WH_SLACK_OTHER }}
+  # ... rest unchanged
+```
+
+### Different channel per registry
+
+Set webhook(s) in the workflow from `env.REGISTRY`, e.g.:
+
+```yaml
+env:
+  SLACK_WEBHOOK_URL: ${{ env.REGISTRY == 'quay.io' && secrets.WH_SLACK_QUAY || secrets.WH_SLACK_OTHER }}
+  # ...
+```
