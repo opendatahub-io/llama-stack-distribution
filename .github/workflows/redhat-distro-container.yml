@@ -245,20 +245,6 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash scripts/notify_slack_build.sh
 
-      # Preview the Slack message in the log (PR only). No webhook is called; use this to verify env/context resolution.
-      - name: Preview Slack message (PR only)
-        if: github.event_name == 'pull_request'
-        env:
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
-          BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          TRIGGER: ${{ github.event_name }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-          COMMIT_SHA: ${{ github.sha }}
-          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: bash scripts/notify_slack_build.sh --preview
-
       - name: Output custom build information
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         run: |
