@@ -34,12 +34,7 @@ function start_and_wait_for_llama_stack_container {
     docker_args+=(
       --env "VERTEX_AI_PROJECT=$VERTEX_AI_PROJECT"
       --env "VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION"
-      --env "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-credentials"
     )
-    # Only mount credentials if the file exists
-    if [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-      docker_args+=(--volume "$GOOGLE_APPLICATION_CREDENTIALS:/run/secrets/gcp-credentials:ro")
-    fi
   fi
 
   # Only add OpenAI configuration if OPENAI_API_KEY is set
