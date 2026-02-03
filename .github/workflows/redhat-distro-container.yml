@@ -134,6 +134,7 @@ jobs:
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          create_credentials_file: false # do not create a credentials file, we will use the workload identity provider
 
       - name: Setup vllm for image test
         if: github.event_name != 'workflow_dispatch'
