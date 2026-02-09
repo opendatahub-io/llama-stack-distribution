@@ -69,39 +69,22 @@ podman run \
 > [!IMPORTANT]
 > The distribution image ships with various dependencies already pre-installed. There is *no* guarantee that your custom run YAML will necessarily work with the included dependencies.
 
-## Slack build notifications
+## Slack Build Notifications
 
-Message is sent on successful image push (`push` / `workflow_dispatch`). Script: `scripts/notify_slack_build.sh`.
+Slack notifications are sent on successful image push (`push`/`workflow_dispatch`) and on build failures.
 
-### One channel
+### Configuration
 
-1. Add repo secret: **Settings → Secrets and variables → Actions** → New repository secret
-   - Name: `WH_SLACK_TEAM_LLS_CORE`
-   - Value: webhook URL (e.g. `https://hooks.slack.com/services/...`)
-2. Workflow already uses it; no change.
+Add a repository secret (**Settings → Secrets and variables → Actions → New repository secret**):
+- **Name:** `WH_SLACK_TEAM_LLS_CORE`
+- **Value:** Slack webhook URL (e.g., `https://hooks.slack.com/services/...`)
 
-### More channels (same message to all)
+To notify multiple channels, use comma-separated webhook URLs in `SLACK_WEBHOOK_URLS`.
 
-1. Add another secret, e.g. `WH_SLACK_OTHER`, with that channel’s webhook URL.
-2. In [.github/workflows/redhat-distro-container.yml](.github/workflows/redhat-distro-container.yml), in the "Notify Slack on successful image push to Quay" step, set:
+### Local Testing
 
-```yaml
-env:
-  SLACK_WEBHOOK_URLS: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }},${{ secrets.WH_SLACK_OTHER }}
-  # ... rest unchanged
+Preview the message format without sending:
+```bash
+IMAGE_NAME=quay.io/opendatahub/llama-stack IMAGE_TAG=abc123 COMMIT_SHA=abc1234567890 \
+  WORKFLOW_URL=https://github.com/... .github/actions/notify-slack/notify.sh --preview
 ```
-
-### Different channel per registry
-
-Set webhook(s) in the workflow from `env.REGISTRY`, e.g.:
-
-```yaml
-env:
-  SLACK_WEBHOOK_URL: ${{ env.REGISTRY == 'quay.io' && secrets.WH_SLACK_QUAY || secrets.WH_SLACK_OTHER }}
-  # ...
-```
-
-### Local testing
-
-- **Preview (no send):** Run `scripts/notify_slack_build.sh --preview` with the required env vars set; prints the message to stdout so you can check the format.
-- **Send to your channel:** Use your own webhook URL and a test channel; set `SLACK_WEBHOOK_URL` and run the script (no `--preview`) with the same env vars.

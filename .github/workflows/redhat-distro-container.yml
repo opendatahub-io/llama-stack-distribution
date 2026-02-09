@@ -10,10 +10,9 @@ on:
       - opened
       - synchronize
     paths:
-      - '.github/actions/setup-vllm/action.yml'
+      - '.github/actions/**'
       - '.github/workflows/redhat-distro-container.yml'
       - 'distribution/**'
-      - 'scripts/**'
       - 'tests/**'
   push:
     branches:
@@ -226,38 +225,26 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Only runs on push/workflow_dispatch (not on pull_request). Fork PRs never run this step.
-      # When secret is unavailable (e.g. push from fork), script skips notification and exits 0.
-      # To add more channels: set SLACK_WEBHOOK_URLS to comma-separated URLs (e.g. secret1,secret2).
-      # For registry-specific channels: set SLACK_WEBHOOK_URLS conditionally per env.REGISTRY.
-      - name: Notify Slack on successful image push to Quay
+      # Notify Slack on success (push/workflow_dispatch only).
+      - name: Notify Slack on success
         if: success() && contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
-          REGISTRY: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
-          BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          TRIGGER: ${{ github.event_name }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: bash scripts/notify_slack_build.sh
+        run: bash .github/actions/notify-slack/notify.sh
 
-      - name: Notify Slack on build failure
+      # Notify Slack on build failure (any event). No IMAGE_NAME/IMAGE_TAG — image may not exist.
+      - name: Notify Slack on failure
         if: failure()
         env:
           NOTIFY_FAILURE: '1'
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
-          BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          TRIGGER: ${{ github.event_name }}
-          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: bash scripts/notify_slack_build.sh
+        run: bash .github/actions/notify-slack/notify.sh
 
       - name: Output custom build information
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
