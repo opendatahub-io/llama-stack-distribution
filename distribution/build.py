@@ -31,6 +31,7 @@ PINNED_DEPENDENCIES = [
     "'aiobotocore==2.16.1'",
     "'ibm-cos-sdk-core==2.14.2'",
     "'ibm-cos-sdk==2.14.2'",
+    "'setuptools==81.0.0'",  # due to bug in milvus-lite with unreleased fix: https://github.com/milvus-io/milvus-lite/pull/323
 ]
 
 source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
