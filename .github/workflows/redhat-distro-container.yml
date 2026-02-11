@@ -225,23 +225,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Notify Slack on success (push/workflow_dispatch only).
-      - name: Notify Slack on success
-        if: success() && contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+      # Set status so the single Notify step knows whether to send success or failure message.
+      - name: Set Slack notify status
+        if: failure()
+        run: echo "NOTIFY_FAILURE=1" >> "$GITHUB_ENV"
+
+      # Notify Slack: on success (push/workflow_dispatch) or on failure
+      - name: Notify Slack
+        if: always() && (failure() || (success() && contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)))
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
-          COMMIT_SHA: ${{ github.sha }}
-          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: bash .github/actions/notify-slack/notify.sh
-
-      # Notify Slack on build failure (any event). No IMAGE_NAME/IMAGE_TAG — image may not exist.
-      - name: Notify Slack on failure
-        if: failure()
-        env:
-          NOTIFY_FAILURE: '1'
-          SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/actions/notify-slack/notify.sh
