@@ -28,7 +28,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
 | inference | remote::vllm | No | ❌ | Set the `VLLM_EMBEDDING_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
-| safety | remote::trustyai_fms | Yes (version 0.3.2) | ✅ | N/A |
+| safety | remote::trustyai_fms | Yes (version 0.4.0) | ✅ | N/A |
 | scoring | inline::basic | No | ✅ | N/A |
 | scoring | inline::braintrust | No | ✅ | N/A |
 | scoring | inline::llm-as-judge | No | ✅ | N/A |
