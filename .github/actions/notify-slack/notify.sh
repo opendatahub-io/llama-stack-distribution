@@ -30,6 +30,7 @@ TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 IMAGE_REF=""
 [[ -n "${IMAGE_NAME:-}" && -n "${IMAGE_TAG:-}" ]] && IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}"
 
+# build_message generates the Slack message text for success or failure notifications, including the timestamp, short commit SHA, image reference on success, and a link to the workflow run.
 build_message() {
   if [[ "${NOTIFY_FAILURE}" == "1" ]]; then
     printf '%s\n%s\n%s\n' \
