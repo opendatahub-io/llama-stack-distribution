@@ -16,7 +16,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | datasetio | remote::huggingface | No | ✅ | N/A |
 | eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
 | eval | remote::trustyai_garak | Yes (version 0.1.8) | ❌ | Set the `ENABLE_KUBEFLOW_GARAK` environment variable |
-| eval | remote::trustyai_lmeval | Yes (version 0.4.2) | ✅ | N/A |
+| eval | remote::trustyai_lmeval | Yes (version 0.5.0) | ✅ | N/A |
 | eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `ENABLE_KUBEFLOW_RAGAS` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
 | files | remote::s3 | No | ❌ | Set the `ENABLE_S3` environment variable |
