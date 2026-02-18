@@ -18,6 +18,7 @@ from pathlib import Path
 CURRENT_LLAMA_STACK_VERSION = "v0.4.2.1+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 LLAMA_STACK_CLIENT_VERSION = "v0.4.2"  # Set to None to auto-derive from LLAMA_STACK_VERSION, or set explicit version
+LLAMA_STACK_API_VERSION = "v0.4.4"  # pre-0.4.4 had broken packaging (llama-stack#4777)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
 ]
@@ -35,7 +36,8 @@ PINNED_DEPENDENCIES = [
 ]
 
 source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
-RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_version}"""
+RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_version}
+RUN uv pip install --no-cache --no-deps llama-stack-api=={llama_stack_api_version}"""
 
 
 def get_llama_stack_install(llama_stack_version):
@@ -51,6 +53,7 @@ def get_llama_stack_install(llama_stack_version):
         return source_install_command.format(
             llama_stack_version=llama_stack_version,
             llama_stack_client_version=llama_stack_client_version,
+            llama_stack_api_version=LLAMA_STACK_API_VERSION,
         ).rstrip()
 
 
