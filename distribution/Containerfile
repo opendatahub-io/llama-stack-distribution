@@ -65,6 +65,7 @@ RUN uv pip install --prerelease=allow --extra-index-url https://download.pytorch
 RUN uv pip install --prerelease=allow --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.2.1+rhai0
 RUN uv pip install --no-cache --no-deps llama-stack-client==v0.4.2
+RUN uv pip install --no-cache --no-deps llama-stack-api==v0.4.2
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/config.yaml ${APP_ROOT}/config.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
