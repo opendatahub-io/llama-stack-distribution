@@ -68,3 +68,23 @@ podman run \
 
 > [!IMPORTANT]
 > The distribution image ships with various dependencies already pre-installed. There is *no* guarantee that your custom run YAML will necessarily work with the included dependencies.
+
+## Slack Build Notifications
+
+Slack notifications are sent on successful image push (`push`/`workflow_dispatch`) and on build failures.
+
+### Configuration
+
+Add a repository secret (**Settings → Secrets and variables → Actions → New repository secret**):
+- **Name:** `WH_SLACK_TEAM_LLS_CORE`
+- **Value:** Slack webhook URL (e.g., `https://hooks.slack.com/services/...`)
+
+To notify multiple channels, use comma-separated webhook URLs in `SLACK_WEBHOOK_URLS`.
+
+### Local Testing
+
+Preview the message format without sending:
+```bash
+IMAGE_NAME=quay.io/opendatahub/llama-stack IMAGE_TAG=abc123 COMMIT_SHA=abc1234567890 \
+  WORKFLOW_URL=https://github.com/... .github/actions/notify-slack/notify.sh --preview
+```
