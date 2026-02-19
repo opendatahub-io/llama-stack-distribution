@@ -271,10 +271,6 @@ storage:
       backend: kv_default
 registered_resources:
   models:
-  - metadata: {}
-    model_id: ${env.INFERENCE_MODEL}
-    provider_id: vllm-inference
-    model_type: llm
   - metadata:
       embedding_dimension: ${env.EMBEDDING_DIMENSION:=768}
     model_id: ${env.EMBEDDING_MODEL:=granite-embedding-125m-english}
@@ -339,6 +335,10 @@ registered_resources:
     provider_id: tavily-search
   - toolgroup_id: builtin::rag
     provider_id: rag-runtime
+vector_stores:
+  annotation_prompt_params:
+    enable_annotations: true
+    annotation_instruction_template: "Cite sources immediately at the end of sentences using <|file-id|> format."
 telemetry:
   enabled: true
 server:
