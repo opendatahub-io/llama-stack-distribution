@@ -10,7 +10,7 @@ on:
       - opened
       - synchronize
     paths:
-      - '.github/actions/setup-vllm/action.yml'
+      - '.github/actions/**'
       - '.github/workflows/redhat-distro-container.yml'
       - 'distribution/**'
       - 'tests/**'
@@ -224,6 +224,22 @@ jobs:
           tags: ${{ github.event_name == 'workflow_dispatch' && format('{0}:source-{1}-{2}', env.IMAGE_NAME, env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}:{1}{2}', env.IMAGE_NAME, github.sha, github.ref == 'refs/heads/main' && format(',{0}:latest', env.IMAGE_NAME) || (startsWith(github.ref, 'refs/heads/rhoai-v') && format(',{0}:{1}-latest', env.IMAGE_NAME, github.ref_name)) || '') }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Set status so the single Notify step knows whether to send success or failure message.
+      - name: Set Slack notify status
+        if: failure()
+        run: echo "NOTIFY_FAILURE=1" >> "$GITHUB_ENV"
+
+      # Notify Slack: on success (push/workflow_dispatch) or on failure
+      - name: Notify Slack
+        if: always() && (failure() || (success() && contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)))
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
+          COMMIT_SHA: ${{ github.sha }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/actions/notify-slack/notify.sh
 
       - name: Output custom build information
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
