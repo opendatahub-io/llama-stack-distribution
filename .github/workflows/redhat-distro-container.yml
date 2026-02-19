@@ -97,7 +97,7 @@ jobs:
 
       - name: Build image (AMD64 for testing)
         id: build
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: distribution/Containerfile
@@ -110,7 +110,7 @@ jobs:
 
       - name: Build image (ARM64 verification)
         id: build-arm64
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: distribution/Containerfile
@@ -215,7 +215,7 @@ jobs:
       - name: Publish multi-arch image to Quay.io
         id: publish
         if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: distribution/Containerfile
