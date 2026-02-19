@@ -11,7 +11,8 @@ RUN uv pip install --prerelease=allow --upgrade \
     'boto3==1.35.88' \
     'aiobotocore==2.16.1' \
     'ibm-cos-sdk-core==2.14.2' \
-    'ibm-cos-sdk==2.14.2'
+    'ibm-cos-sdk==2.14.2' \
+    'setuptools==81.0.0'
 RUN uv pip install --prerelease=allow \
     'datasets>=4.0.0' \
     'fonttools>=4.60.2' \
@@ -65,6 +66,7 @@ RUN uv pip install --prerelease=allow --extra-index-url https://download.pytorch
 RUN uv pip install --prerelease=allow --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.4.2.1+rhai0
 RUN uv pip install --no-cache --no-deps llama-stack-client==v0.4.2
+RUN uv pip install --no-cache --no-deps llama-stack-api==v0.4.4
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/config.yaml ${APP_ROOT}/config.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
