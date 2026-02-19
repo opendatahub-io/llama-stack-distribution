@@ -136,7 +136,7 @@ providers:
   eval:
   - provider_id: trustyai_lmeval
     provider_type: remote::trustyai_lmeval
-    module: llama_stack_provider_lmeval==0.4.2
+    module: llama_stack_provider_lmeval==0.5.0
     config:
       use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
       base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
@@ -271,10 +271,6 @@ storage:
       backend: kv_default
 registered_resources:
   models:
-  - metadata: {}
-    model_id: ${env.INFERENCE_MODEL}
-    provider_id: vllm-inference
-    model_type: llm
   - metadata:
       embedding_dimension: ${env.EMBEDDING_DIMENSION:=768}
     model_id: ${env.EMBEDDING_MODEL:=granite-embedding-125m-english}
