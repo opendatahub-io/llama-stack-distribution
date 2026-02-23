@@ -3,8 +3,12 @@ WORKDIR /opt/app-root
 
 RUN pip install uv
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
+RUN uv pip install opentelemetry-distro
+
 {dependencies}
 {llama_stack_install_source}
+
+RUN set -o pipefail && opentelemetry-bootstrap -a requirements | uv pip install --requirement -
 
 RUN mkdir -p ${{HOME}}/.llama ${{HOME}}/.cache
 COPY distribution/config.yaml ${{APP_ROOT}}/config.yaml
