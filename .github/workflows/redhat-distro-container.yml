@@ -66,16 +66,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Check if Containerfile changed
-        id: containerfile-changed
+      - name: Check if distribution directory changed
+        id: distribution-changed
         if: github.event_name == 'push'
         run: |
-          # Check if Containerfile was modified in any commit in this push
-          if jq -e '.commits[].modified[], .commits[].added[] | select(. == "distribution/Containerfile")' "$GITHUB_EVENT_PATH" > /dev/null 2>&1; then
+          # Check if any file in the distribution directory was modified in any commit in this push
+          if jq -e '.commits[].modified[], .commits[].added[] | select(startswith("distribution/"))' "$GITHUB_EVENT_PATH" > /dev/null 2>&1; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Containerfile was not modified in this push, skipping publish"
+            echo "distribution/ was not modified in this push, skipping publish"
           fi
 
       - name: Install uv
@@ -217,7 +217,7 @@ jobs:
 
       - name: Log in to Quay.io
         id: login
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.containerfile-changed.outputs.changed == 'true')
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true')
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -226,7 +226,7 @@ jobs:
 
       - name: Publish multi-arch image to Quay.io
         id: publish
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.containerfile-changed.outputs.changed == 'true')
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true')
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
@@ -244,7 +244,7 @@ jobs:
 
       # Notify Slack: on success (when image published) or on failure
       - name: Notify Slack
-        if: always() && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.containerfile-changed.outputs.changed == 'true'))))
+        if: always() && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true'))))
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
