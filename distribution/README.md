@@ -4,7 +4,7 @@
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with the Open Data Hub version of Llama Stack version [0.4.2.1+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.4.2.1+rhai0)
+The image is currently shipping with the Open Data Hub version of Llama Stack version [0.5.0+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.5.0+rhai0)
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
@@ -14,10 +14,10 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | batches | inline::reference | No | ✅ | N/A |
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
-| eval | inline::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
-| eval | remote::trustyai_garak | Yes (version 0.1.8) | ❌ | Set the `ENABLE_KUBEFLOW_GARAK` environment variable |
-| eval | remote::trustyai_lmeval | Yes (version 0.4.2) | ✅ | N/A |
-| eval | remote::trustyai_ragas | Yes (version 0.5.1) | ❌ | Set the `ENABLE_KUBEFLOW_RAGAS` environment variable |
+| eval | inline::trustyai_ragas | Yes (version 0.6.0) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
+| eval | remote::trustyai_garak | Yes (version 0.2.0) | ❌ | Set the `ENABLE_KUBEFLOW_GARAK` environment variable |
+| eval | remote::trustyai_lmeval | Yes (version 0.5.0) | ✅ | N/A |
+| eval | remote::trustyai_ragas | Yes (version 0.6.0) | ❌ | Set the `ENABLE_KUBEFLOW_RAGAS` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
 | files | remote::s3 | No | ❌ | Set the `ENABLE_S3` environment variable |
 | inference | inline::sentence-transformers | No | ❌ | Set the `ENABLE_SENTENCE_TRANSFORMERS` environment variable |
@@ -28,7 +28,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
 | inference | remote::vllm | No | ❌ | Set the `VLLM_EMBEDDING_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
-| safety | remote::trustyai_fms | Yes (version 0.3.2) | ✅ | N/A |
+| safety | remote::trustyai_fms | Yes (version 0.4.0) | ✅ | N/A |
 | scoring | inline::basic | No | ✅ | N/A |
 | scoring | inline::braintrust | No | ✅ | N/A |
 | scoring | inline::llm-as-judge | No | ✅ | N/A |

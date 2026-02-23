@@ -15,9 +15,11 @@ import re
 import shlex
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "v0.4.2.1+rhai0"
+CURRENT_LLAMA_STACK_VERSION = "v0.5.0+rhai0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
-LLAMA_STACK_CLIENT_VERSION = "v0.4.2"  # Set to None to auto-derive from LLAMA_STACK_VERSION, or set explicit version
+LLAMA_STACK_CLIENT_VERSION = (
+    None  # Set to None to auto-derive from LLAMA_STACK_VERSION, or set explicit version
+)
 BASE_REQUIREMENTS = [
     f"llama-stack=={LLAMA_STACK_VERSION}",
 ]
@@ -31,6 +33,7 @@ PINNED_DEPENDENCIES = [
     "'aiobotocore==2.16.1'",
     "'ibm-cos-sdk-core==2.14.2'",
     "'ibm-cos-sdk==2.14.2'",
+    "'setuptools==81.0.0'",  # due to bug in milvus-lite with unreleased fix: https://github.com/milvus-io/milvus-lite/pull/323
 ]
 
 source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
@@ -145,10 +148,7 @@ def get_dependencies():
                 continue
 
             # New format: just packages, possibly with flags
-            # Fixes: https://issues.redhat.com/browse/RHAIENG-2710
-            # TODO: remove this once we have a stable version of kubernetes.
-            # Use --prerelease=allow to permit pre-release dependencies (e.g. kubernetes==35.0.0a1)
-            cmd_parts = ["RUN", "uv", "pip", "install", "--prerelease=allow"]
+            cmd_parts = ["RUN", "uv", "pip", "install"]
             packages_str = line
 
             # Parse packages and flags from the line
@@ -231,7 +231,7 @@ def get_dependencies():
         # Add pinned dependencies FIRST to ensure version compatibility
         if PINNED_DEPENDENCIES:
             pinned_packages = " \\\n    ".join(PINNED_DEPENDENCIES)
-            pinned_cmd = f"RUN uv pip install --prerelease=allow --upgrade \\\n    {pinned_packages}"
+            pinned_cmd = f"RUN uv pip install --upgrade \\\n    {pinned_packages}"
             all_deps.append(pinned_cmd)
 
         all_deps.extend(sorted(standard_deps))  # Regular pip installs
