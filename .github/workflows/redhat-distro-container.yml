@@ -66,6 +66,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Check if distribution directory changed
+        id: distribution-changed
+        if: github.event_name == 'push'
+        run: |
+          # Check if any file in the distribution directory was modified in any commit in this push
+          if jq -e '.commits[].modified[], .commits[].added[] | select(startswith("distribution/"))' "$GITHUB_EVENT_PATH" > /dev/null 2>&1; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "distribution/ was not modified in this push, skipping publish"
+          fi
+
       - name: Install uv
         uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
         with:
@@ -205,7 +217,7 @@ jobs:
 
       - name: Log in to Quay.io
         id: login
-        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true')
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -214,7 +226,7 @@ jobs:
 
       - name: Publish multi-arch image to Quay.io
         id: publish
-        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true')
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
@@ -230,9 +242,9 @@ jobs:
         if: failure()
         run: echo "NOTIFY_FAILURE=1" >> "$GITHUB_ENV"
 
-      # Notify Slack: on success (push/workflow_dispatch) or on failure
+      # Notify Slack: on success (when image published) or on failure
       - name: Notify Slack
-        if: always() && (failure() || (success() && contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)))
+        if: always() && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true'))))
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
