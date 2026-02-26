@@ -77,7 +77,7 @@ function run_integration_tests() {
     # shellcheck source=/dev/null
     source .venv/bin/activate
     uv pip install llama-stack-client
-    uv run pytest -s -v tests/integration/inference/ \
+    uv run pytest -s -v tests/integration/inference/ tests/integration/responses/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
         --text-model="$model" \
         --embedding-model="$EMBEDDING_MODEL" \
