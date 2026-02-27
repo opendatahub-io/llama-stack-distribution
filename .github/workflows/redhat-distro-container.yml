@@ -177,7 +177,7 @@ jobs:
           mkdir -p logs
 
           docker logs llama-stack > logs/llama-stack.log 2>&1 || echo "Failed to get llama-stack logs" > logs/llama-stack.log
-          docker logs vllm > logs/vllm.log 2>&1 || echo "Failed to get vllm logs" > logs/vllm.log
+          cp /tmp/vllm.log logs/vllm.log 2>/dev/null || echo "No vllm logs found" > logs/vllm.log
           docker logs postgres > logs/postgres.log 2>&1 || echo "Failed to get postgres logs" > logs/postgres.log
 
           # Gather system information
