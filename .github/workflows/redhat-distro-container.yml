@@ -242,9 +242,9 @@ jobs:
         if: failure()
         run: echo "NOTIFY_FAILURE=1" >> "$GITHUB_ENV"
 
-      # Notify Slack: on success (when image published) or on failure
+      # Notify Slack: on success (when image published) or on failure; only on push/workflow_dispatch/schedule, not on pull_request
       - name: Notify Slack
-        if: always() && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true'))))
+        if: always() && github.event_name != 'pull_request' && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true'))))
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
