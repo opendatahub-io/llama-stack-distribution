@@ -151,6 +151,9 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         id: vllm
         uses: ./.github/actions/setup-vllm
+        env:
+          VLLM_IMAGE: quay.io/higginsd/vllm-cpu:65393ee064-qwen3
+          VLLM_MODE: legacy
 
       - name: Setup PostgreSQL for llama-stack
         if: github.event_name != 'workflow_dispatch'
@@ -213,7 +216,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          docker rm -f vllm llama-stack postgres
+          docker rm -f vllm-legacy llama-stack postgres
 
       - name: Log in to Quay.io
         id: login
