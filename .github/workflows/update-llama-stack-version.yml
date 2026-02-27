@@ -1,0 +1,210 @@
+name: Update Llama Stack Version
+
+run-name: "Update llama-stack to ${{ github.event.client_payload.tag }}"
+
+on:
+  repository_dispatch:
+    types: [update-llama-stack-version]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.client_payload.tag }}
+  cancel-in-progress: false
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.client_payload.tag }}
+      BRANCH: chore/update-llama-stack-${{ github.event.client_payload.tag }}
+      WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
+    steps:
+      - name: Validate event payload
+        run: |
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Missing 'tag' in repository_dispatch client_payload"
+            exit 1
+          fi
+
+          # Validate tag format: vMAJOR.MINOR.PATCH[.BUILD]+rhaiN (e.g., v0.5.0+rhai0, v0.5.0.1+rhai0)
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?\+rhai[0-9]+$ ]]; then
+            echo "::error::Tag '${TAG}' does not match expected format vX.Y.Z+rhaiN"
+            exit 1
+          fi
+
+          echo "Updating Llama Stack to version: $TAG"
+
+      - name: Checkout main branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Check for existing branch
+        run: |
+          if git ls-remote --exit-code --heads origin "refs/heads/${BRANCH}" > /dev/null 2>&1; then
+            echo "::error::Branch ${BRANCH} already exists on remote"
+            exit 1
+          fi
+
+      - name: Verify target line exists and capture old version
+        id: current-version
+        run: |
+          if ! grep -q '^CURRENT_LLAMA_STACK_VERSION = ' distribution/build.py; then
+            echo "::error::Could not find CURRENT_LLAMA_STACK_VERSION in distribution/build.py"
+            exit 1
+          fi
+          OLD_VERSION=$(grep '^CURRENT_LLAMA_STACK_VERSION = ' distribution/build.py | sed 's/.*"\(.*\)"/\1/')
+          echo "old_version=$OLD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Current version: $OLD_VERSION"
+
+      - name: Create update branch
+        run: git checkout -b "$BRANCH"
+
+      - name: Update version in build.py
+        run: |
+          sed -i "s|^CURRENT_LLAMA_STACK_VERSION = \".*\"|CURRENT_LLAMA_STACK_VERSION = \"${TAG}\"|" distribution/build.py
+
+          if ! grep -q "CURRENT_LLAMA_STACK_VERSION = \"${TAG}\"" distribution/build.py; then
+            echo "::error::Failed to update CURRENT_LLAMA_STACK_VERSION to ${TAG}"
+            exit 1
+          fi
+          echo "Updated CURRENT_LLAMA_STACK_VERSION to ${TAG}"
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+
+      - name: Run pre-commit
+        env:
+          SKIP: no-commit-to-branch
+        run: |
+          pip install pre-commit
+          # Pre-commit will exit non-zero when hooks modify files (expected for Containerfile/README regeneration).
+          # Use || to capture the exit code without triggering set -e (active by default in GitHub Actions).
+          rc=0
+          pre-commit run --all-files || rc=$?
+          if [[ $rc -ne 0 ]]; then
+            if git diff --quiet && git diff --cached --quiet; then
+              echo "::error::Pre-commit failed without modifying any files"
+              exit 1
+            fi
+            echo "Pre-commit modified files as expected (Containerfile/README regeneration)"
+          fi
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "::error::No changes to commit — version may already be set to ${TAG}"
+            exit 1
+          fi
+
+          git commit -m "chore: update llama-stack to ${TAG}"
+
+      - name: Push branch
+        run: git push origin "$BRANCH"
+
+      - name: Open pull request
+        id: create-pr
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          OLD_VERSION: ${{ steps.current-version.outputs.old_version }}
+          SOURCE_RUN_URL: ${{ github.event.client_payload.source_run_url }}
+        run: |
+          SOURCE_TAG_URL="https://github.com/opendatahub-io/llama-stack/releases/tag/${TAG}"
+
+          BODY=$(cat <<EOF
+          ## Summary
+
+          Update \`CURRENT_LLAMA_STACK_VERSION\` from \`${OLD_VERSION}\` to \`${TAG}\`
+
+          Regenerated distribution artifacts via pre-commit.
+
+          ## Source
+
+          Tag: [\`${TAG}\`](${SOURCE_TAG_URL})
+          EOF
+          )
+
+          if [[ -n "${SOURCE_RUN_URL}" ]]; then
+            BODY="${BODY}
+          Triggered by: [workflow run](${SOURCE_RUN_URL})"
+          fi
+
+          BODY="${BODY}
+
+          ## Test plan
+
+          - [ ] Review the generated \`distribution/Containerfile\` changes
+          - [ ] Verify the new tag exists in opendatahub-io/llama-stack
+          - [ ] Merge and confirm the distribution container build succeeds"
+
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: update llama-stack to ${TAG}" \
+            --body "$BODY")
+
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "Created PR: $PR_URL"
+
+      - name: Notify Slack (success)
+        if: success()
+        run: |
+          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
+          PR_URL="${{ steps.create-pr.outputs.pr_url }}"
+
+          TEXT=$(printf '%s\n%s\n%s' \
+            ":greenchecked: *Llama Stack version update to \`${TAG}\` is ready for review*" \
+            "PR: <${PR_URL}|Review and merge>" \
+            "<${WORKFLOW_URL}|View workflow run>")
+
+          PAYLOAD=$(jq -n --arg text "$TEXT" '{
+            attachments: [{
+              color: "#46567f",
+              blocks: [{ type: "section", text: { type: "mrkdwn", text: $text } }]
+            }]
+          }')
+
+          curl -sf --connect-timeout 5 --max-time 10 \
+            -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" \
+            && echo "Slack notification sent" \
+            || echo "::warning::Failed to send Slack notification"
+
+      - name: Notify Slack (failure)
+        if: failure()
+        run: |
+          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
+          TEXT=$(printf '%s\n%s\n%s' \
+            ":failed: *Failed to create llama-stack version update PR*" \
+            "Version: \`${TAG}\`" \
+            "<${WORKFLOW_URL}|View workflow run>")
+
+          PAYLOAD=$(jq -n --arg text "$TEXT" '{
+            attachments: [{
+              color: "#d00000",
+              blocks: [{ type: "section", text: { type: "mrkdwn", text: $text } }]
+            }]
+          }')
+
+          curl -sf --connect-timeout 5 --max-time 10 \
+            -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" \
+            && echo "Slack failure notification sent" \
+            || echo "::warning::Failed to send Slack notification"
