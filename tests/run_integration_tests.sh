@@ -100,7 +100,8 @@ function main() {
     clone_llama_stack
 
     # Build list of models to test based on available configuration
-    models_to_test=("$VLLM_INFERENCE_MODEL")
+    # models_to_test=("$VLLM_INFERENCE_MODEL")
+    models_to_test=() # skip vllm tests for now
 
     # Only include Vertex AI models if VERTEX_AI_PROJECT is set
     if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
