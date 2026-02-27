@@ -83,17 +83,11 @@ jobs:
           SKIP: no-commit-to-branch
         run: |
           pip install pre-commit
-          # Pre-commit will exit non-zero when hooks modify files (expected for Containerfile/README regeneration).
-          # Use || to capture the exit code without triggering set -e (active by default in GitHub Actions).
-          rc=0
-          pre-commit run --all-files || rc=$?
-          if [[ $rc -ne 0 ]]; then
-            if git diff --quiet && git diff --cached --quiet; then
-              echo "::error::Pre-commit failed without modifying any files"
-              exit 1
-            fi
-            echo "Pre-commit modified files as expected (Containerfile/README regeneration)"
-          fi
+          # Two-pass approach: the first run lets hooks autofix files (e.g., Containerfile/README
+          # regeneration by pkg-gen/doc-gen). The second run verifies everything is clean — any
+          # failure here is a genuine error, not an expected autofix.
+          pre-commit run --all-files || true
+          pre-commit run --all-files
 
       - name: Commit changes
         run: |
