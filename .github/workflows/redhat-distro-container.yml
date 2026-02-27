@@ -40,8 +40,20 @@ env:
   IMAGE_NAME: quay.io/opendatahub/llama-stack # tags for the image will be added dynamically
 
 jobs:
-  build-test-push:
-    runs-on: ubuntu-latest
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    outputs:
+      distribution-changed: ${{ steps.distribution-changed.outputs.changed }}
     env:
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
       VERTEX_AI_LOCATION: us-central1
@@ -55,9 +67,6 @@ jobs:
       EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
-    strategy:
-      matrix:
-        platform: [linux/amd64] # Build AMD64 for testing (load: true only works for single platform)
     permissions:
       id-token: write # for Google Cloud authentication
       contents: read
@@ -79,13 +88,11 @@ jobs:
           fi
 
       - name: Install uv
+        if: matrix.arch == 'amd64' || contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
         with:
           python-version: 3.12
           version: 0.7.6
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -107,7 +114,7 @@ jobs:
           python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
-      - name: Build image (AMD64 for testing)
+      - name: Build image for testing (${{ matrix.arch }})
         id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
@@ -116,39 +123,26 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: false
           tags: ${{ env.IMAGE_NAME }}:${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
-          load: true  # needed to load for smoke test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build image (ARM64 verification)
-        id: build-arm64
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          file: distribution/Containerfile
-          platforms: linux/arm64
-          push: false
-          tags: ${{ env.IMAGE_NAME }}:${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}-arm64', env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}-arm64', github.sha) }}
-          load: false  # Only verify it builds, don't load (can't load ARM64 on AMD64 runner)
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true
+          cache-from: type=gha,scope=build-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.arch }}
 
       - name: Unset cloud provider credentials for fork PRs (secrets not available)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+        if: matrix.arch == 'amd64' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
         run: |
           echo "Unsetting cloud provider credentials for fork PR (secrets not available)"
           echo "VERTEX_AI_PROJECT=" >> "$GITHUB_ENV"
           echo "OPENAI_API_KEY=" >> "$GITHUB_ENV"
 
       - name: Authenticate to Google Cloud (Vertex)
-        if: github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+        if: matrix.arch == 'amd64' && github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
       - name: Setup vllm for image test
-        if: github.event_name != 'workflow_dispatch'
+        if: matrix.arch == 'amd64' && github.event_name != 'workflow_dispatch'
         id: vllm
         uses: ./.github/actions/setup-vllm
 
@@ -161,10 +155,12 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         id: smoke-test
         shell: bash
+        env:
+          SKIP_INFERENCE_TESTS: ${{ matrix.arch == 'arm64' && 'true' || 'false' }}
         run: ./tests/smoke.sh
 
       - name: Integration tests
-        if: github.event_name != 'workflow_dispatch'
+        if: matrix.arch == 'amd64' && github.event_name != 'workflow_dispatch'
         id: integration-tests
         shell: bash
         run: ./tests/run_integration_tests.sh
@@ -205,7 +201,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: ci-logs-${{ github.sha }}
+          name: ci-logs-${{ matrix.arch }}-${{ github.sha }}
           path: logs/
           retention-days: 7
 
@@ -215,36 +211,13 @@ jobs:
         run: |
           docker rm -f vllm llama-stack postgres
 
-      - name: Log in to Quay.io
-        id: login
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true')
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
-
-      - name: Publish multi-arch image to Quay.io
-        id: publish
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true')
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
-        with:
-          context: .
-          file: distribution/Containerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ github.event_name == 'workflow_dispatch' && format('{0}:source-{1}-{2}', env.IMAGE_NAME, env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}:{1}{2}', env.IMAGE_NAME, github.sha, github.ref == 'refs/heads/main' && format(',{0}:latest', env.IMAGE_NAME) || (startsWith(github.ref, 'refs/heads/rhoai-v') && format(',{0}:{1}-latest', env.IMAGE_NAME, github.ref_name)) || '') }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       # Set status so the single Notify step knows whether to send success or failure message.
       - name: Set Slack notify status
         if: failure()
         run: echo "NOTIFY_FAILURE=1" >> "$GITHUB_ENV"
 
-      # Notify Slack: on success (when image published) or on failure; only on push/workflow_dispatch/schedule, not on pull_request
       - name: Notify Slack
-        if: always() && github.event_name != 'pull_request' && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true'))))
+        if: always() && github.event_name != 'pull_request' && failure()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
@@ -254,7 +227,7 @@ jobs:
         run: bash .github/actions/notify-slack/notify.sh
 
       - name: Output custom build information
-        if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
+        if: matrix.arch == 'amd64' && contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         run: |
           echo "✅ Custom container image built successfully!"
           echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
@@ -262,3 +235,78 @@ jobs:
           echo ""
           echo "You can pull this image using:"
           echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+
+  publish:
+    needs: build-test
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && needs.build-test.outputs.distribution-changed == 'true')
+    runs-on: ubuntu-latest
+    env:
+      LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install uv
+        if: github.event_name == 'workflow_dispatch'
+        uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+        with:
+          python-version: 3.12
+          version: 0.7.6
+
+      - name: Generate Containerfile to build an image from an arbitrary llama-stack commit (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          LLAMA_STACK_VERSION: ${{ env.LLAMA_STACK_COMMIT_SHA }}
+        run: |
+          tmp_build_dir=$(mktemp -d)
+          git clone --filter=blob:none --no-checkout https://github.com/opendatahub-io/llama-stack.git "$tmp_build_dir"
+          cd "$tmp_build_dir"
+          git checkout "$LLAMA_STACK_VERSION"
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --no-cache -e .
+          # now remove the install line from the Containerfile
+          cd -
+          python3 distribution/build.py
+          sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Publish multi-arch image to Quay.io
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: distribution/Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ github.event_name == 'workflow_dispatch' && format('{0}:source-{1}-{2}', env.IMAGE_NAME, env.LLAMA_STACK_COMMIT_SHA, github.sha) || format('{0}:{1}{2}', env.IMAGE_NAME, github.sha, github.ref == 'refs/heads/main' && format(',{0}:latest', env.IMAGE_NAME) || (startsWith(github.ref, 'refs/heads/rhoai-v') && format(',{0}:{1}-latest', env.IMAGE_NAME, github.ref_name)) || '') }}
+          cache-from: |
+            type=gha,scope=build-amd64
+            type=gha,scope=build-arm64
+
+      - name: Set Slack notify status
+        if: failure()
+        run: echo "NOTIFY_FAILURE=1" >> "$GITHUB_ENV"
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
+          COMMIT_SHA: ${{ github.sha }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/actions/notify-slack/notify.sh
