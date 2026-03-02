@@ -65,14 +65,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 2  # Need parent commit to detect changes
 
       - name: Check if distribution directory changed
         id: distribution-changed
         if: github.event_name == 'push'
         run: |
-          # Check if any file in the distribution directory was modified in any commit in this push
-          if jq -e '.commits[].modified[], .commits[].added[] | select(startswith("distribution/"))' "$GITHUB_EVENT_PATH" > /dev/null 2>&1; then
+          # Check if any file in the distribution directory was modified in this push
+          # Use git diff instead of parsing event payload (which is unreliable for merge commits)
+          if git diff --name-only HEAD^ HEAD | grep -q '^distribution/'; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "distribution/ was modified in this push, will publish"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "distribution/ was not modified in this push, skipping publish"
