@@ -120,6 +120,20 @@ providers:
         orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
         ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
         shields: {}
+    - provider_id: ${env.PASSTHROUGH_SAFETY_URL:+passthrough}
+      provider_type: remote::passthrough
+      config:
+        base_url: ${env.PASSTHROUGH_SAFETY_URL:=}
+        api_key: ${env.PASSTHROUGH_SAFETY_API_KEY:=}
+        # forward_headers maps keys from X-LlamaStack-Provider-Data to outbound
+        # HTTP headers sent to the downstream service. use this when callers pass
+        # per-request credentials (e.g. a tenant API token) rather than a shared
+        # static key. omit api_key above if you rely solely on forwarded headers.
+        #
+        # forward_headers:
+        #   maas_api_token: Authorization   # X-LlamaStack-Provider-Data key → header
+        #   tenant_id: X-Tenant-Id
+        #   team_id: X-Team-Id
   agents:
   - provider_id: meta-reference
     provider_type: inline::meta-reference
