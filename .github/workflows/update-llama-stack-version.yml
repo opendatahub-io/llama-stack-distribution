@@ -39,6 +39,7 @@ jobs:
             echo "::error::Tag '${TAG}' does not match expected format vX.Y.Z+rhaiN"
             exit 1
           fi
+          echo "Validated tag: $TAG"
 
           # Validate source_run_url if provided (untrusted input from client_payload)
           if [[ -n "${SOURCE_RUN_URL}" ]]; then
@@ -46,9 +47,8 @@ jobs:
               echo "::error::source_run_url does not match expected pattern: ${MIDSTREAM_REPO_URL}/actions/runs/<id>"
               exit 1
             fi
+            echo "Validated source_run_url: $SOURCE_RUN_URL"
           fi
-
-          echo "Validated tag: $TAG"
 
       - name: Checkout main branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
