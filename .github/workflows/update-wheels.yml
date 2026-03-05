@@ -12,6 +12,8 @@ env:
   BUILD_ID: ${{ github.event.client_payload.build_id }}
   BRANCH: chore/update-wheels-${{ github.event.client_payload.build_id }}
   CONF_FILE: konflux/cpu-ubi9.conf
+  SOURCE_RUN_URL: ${{ github.event.client_payload.source_run_url }}
+  PIPELINE_REPO_URL: https://gitlab.com/redhat/rhel-ai/llama-stack/pipeline
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.client_payload.build_id }}
@@ -31,7 +33,16 @@ jobs:
             echo "::error::Missing 'build_id' in repository_dispatch client_payload"
             exit 1
           fi
-          echo "Updating wheels to build_id: $BUILD_ID"
+          echo "Validated build_id: $BUILD_ID"
+
+          # Validate source_run_url if provided (untrusted input from client_payload)
+          if [[ -n "${SOURCE_RUN_URL}" ]]; then
+            if [[ ! "${SOURCE_RUN_URL}" =~ ^${PIPELINE_REPO_URL}/-/pipelines/[0-9]+$ ]]; then
+              echo "::error::source_run_url does not match expected pattern: ${PIPELINE_REPO_URL}/-/pipelines/<id>"
+              exit 1
+            fi
+            echo "Validated source_run_url: $SOURCE_RUN_URL"
+          fi
 
       - name: Checkout main branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -129,7 +140,6 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           OLD_AARCH64: ${{ steps.old-values.outputs.old_aarch64 }}
           OLD_X86_64: ${{ steps.old-values.outputs.old_x86_64 }}
-          SOURCE_RUN_URL: ${{ github.event.client_payload.source_run_url }}
         run: |
           SOURCE_LINE=""
           if [[ -n "${SOURCE_RUN_URL}" ]]; then
