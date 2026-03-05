@@ -12,6 +12,8 @@ env:
   TAG: ${{ github.event.client_payload.tag }}
   BRANCH: chore/update-llama-stack-${{ github.event.client_payload.tag }}
   VERSION_FILE: distribution/build.py
+  SOURCE_RUN_URL: ${{ github.event.client_payload.source_run_url }}
+  MIDSTREAM_REPO_URL: https://github.com/opendatahub-io/llama-stack
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.client_payload.tag }}
@@ -36,6 +38,14 @@ jobs:
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?\+rhai[0-9]+$ ]]; then
             echo "::error::Tag '${TAG}' does not match expected format vX.Y.Z+rhaiN"
             exit 1
+          fi
+
+          # Validate source_run_url if provided (untrusted input from client_payload)
+          if [[ -n "${SOURCE_RUN_URL}" ]]; then
+            if [[ ! "${SOURCE_RUN_URL}" =~ ^${MIDSTREAM_REPO_URL}/actions/runs/[0-9]+$ ]]; then
+              echo "::error::source_run_url does not match expected pattern: ${MIDSTREAM_REPO_URL}/actions/runs/<id>"
+              exit 1
+            fi
           fi
 
           echo "Validated tag: $TAG"
@@ -146,10 +156,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           OLD_VERSION: ${{ steps.current-version.outputs.old_version }}
-          SOURCE_RUN_URL: ${{ github.event.client_payload.source_run_url }}
+          SOURCE_TAG_URL: ${{ env.MIDSTREAM_REPO_URL }}/releases/tag/${{ env.TAG }}
         run: |
-          SOURCE_TAG_URL="https://github.com/opendatahub-io/llama-stack/releases/tag/${TAG}"
-
           SOURCE_LINE=""
           if [[ -n "${SOURCE_RUN_URL}" ]]; then
             SOURCE_LINE="Triggered by: [workflow run](${SOURCE_RUN_URL})"
