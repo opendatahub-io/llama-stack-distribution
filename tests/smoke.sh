@@ -171,48 +171,57 @@ main() {
   # Track failures
   failed_checks=()
 
-  # Build list of models to test based on available configuration
-  models_to_test=("$VLLM_INFERENCE_MODEL" "$EMBEDDING_MODEL")
-  inference_models_to_test=("$VLLM_INFERENCE_MODEL")
+  if [ "${SKIP_INFERENCE_TESTS:-false}" == "true" ]; then
+    echo "===> SKIP_INFERENCE_TESTS is set, running container health and PostgreSQL verification only"
+    echo "===> Skipping model list, inference, and data population checks (no vLLM available)"
 
-  # Only include Vertex AI models if VERTEX_AI_PROJECT is set
-  if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
-    echo "===> VERTEX_AI_PROJECT is set, including Vertex AI models in tests"
-    models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
-    inference_models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
-  else
-    echo "===> VERTEX_AI_PROJECT is not set, skipping Vertex AI models"
-  fi
-
-  # Only include OpenAI models if OPENAI_API_KEY is set
-  if [ -n "${OPENAI_API_KEY:-}" ]; then
-    echo "===> OPENAI_API_KEY is set, including OpenAI models in tests"
-    models_to_test+=("$OPENAI_INFERENCE_MODEL")
-    inference_models_to_test+=("$OPENAI_INFERENCE_MODEL")
-  else
-    echo "===> OPENAI_API_KEY is not set, skipping OpenAI models"
-  fi
-
-  echo "===> Testing model list for all models..."
-  for model in "${models_to_test[@]}"; do
-    if ! test_model_list "$model"; then
-      failed_checks+=("model_list:$model")
+    if ! test_postgres_tables_exist; then
+      failed_checks+=("postgres:tables")
     fi
-  done
+  else
+    # Build list of models to test based on available configuration
+    models_to_test=("$VLLM_INFERENCE_MODEL" "$EMBEDDING_MODEL")
+    inference_models_to_test=("$VLLM_INFERENCE_MODEL")
 
-  echo "===> Testing inference for all models..."
-  for model in "${inference_models_to_test[@]}"; do
-    if ! test_model_openai_inference "$model"; then
-      failed_checks+=("inference:$model")
+    # Only include Vertex AI models if VERTEX_AI_PROJECT is set
+    if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
+      echo "===> VERTEX_AI_PROJECT is set, including Vertex AI models in tests"
+      models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
+      inference_models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
+    else
+      echo "===> VERTEX_AI_PROJECT is not set, skipping Vertex AI models"
     fi
-  done
 
-  # Verify PostgreSQL tables and data
-  if ! test_postgres_tables_exist; then
-    failed_checks+=("postgres:tables")
-  fi
-  if ! test_postgres_populated; then
-    failed_checks+=("postgres:data")
+    # Only include OpenAI models if OPENAI_API_KEY is set
+    if [ -n "${OPENAI_API_KEY:-}" ]; then
+      echo "===> OPENAI_API_KEY is set, including OpenAI models in tests"
+      models_to_test+=("$OPENAI_INFERENCE_MODEL")
+      inference_models_to_test+=("$OPENAI_INFERENCE_MODEL")
+    else
+      echo "===> OPENAI_API_KEY is not set, skipping OpenAI models"
+    fi
+
+    echo "===> Testing model list for all models..."
+    for model in "${models_to_test[@]}"; do
+      if ! test_model_list "$model"; then
+        failed_checks+=("model_list:$model")
+      fi
+    done
+
+    echo "===> Testing inference for all models..."
+    for model in "${inference_models_to_test[@]}"; do
+      if ! test_model_openai_inference "$model"; then
+        failed_checks+=("inference:$model")
+      fi
+    done
+
+    # Verify PostgreSQL tables and data
+    if ! test_postgres_tables_exist; then
+      failed_checks+=("postgres:tables")
+    fi
+    if ! test_postgres_populated; then
+      failed_checks+=("postgres:data")
+    fi
   fi
 
   # Report results
