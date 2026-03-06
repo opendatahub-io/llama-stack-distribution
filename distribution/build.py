@@ -37,7 +37,7 @@ PINNED_DEPENDENCIES = [
 ]
 
 source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
-RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_version}"""
+RUN uv pip install --no-cache --no-deps {llama_stack_client_install}"""
 
 
 def get_llama_stack_install(llama_stack_version):
@@ -47,12 +47,17 @@ def get_llama_stack_install(llama_stack_version):
         if LLAMA_STACK_CLIENT_VERSION
         else llama_stack_version.split("+")[0]
     )
+    # source_install_command needs a git URL for branch names/SHAs, not a == pin
+    if "." not in llama_stack_client_version:
+        llama_stack_client_install = f"git+https://github.com/llamastack/llama-stack-client-python.git@{llama_stack_client_version}"
+    else:
+        llama_stack_client_install = f"llama-stack-client=={llama_stack_client_version}"
     # If the version is a commit SHA or a short commit SHA, we need to install from source
     if is_install_from_source(llama_stack_version):
         print(f"Installing llama-stack from source: {llama_stack_version}")
         return source_install_command.format(
             llama_stack_version=llama_stack_version,
-            llama_stack_client_version=llama_stack_client_version,
+            llama_stack_client_install=llama_stack_client_install,
         ).rstrip()
 
 
