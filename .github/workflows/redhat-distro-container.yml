@@ -65,14 +65,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 2  # Need parent commit to detect changes
 
       - name: Check if distribution directory changed
         id: distribution-changed
         if: github.event_name == 'push'
         run: |
-          # Check if any file in the distribution directory was modified in any commit in this push
-          if jq -e '.commits[].modified[], .commits[].added[] | select(startswith("distribution/"))' "$GITHUB_EVENT_PATH" > /dev/null 2>&1; then
+          # Check if any file in the distribution directory was modified in this push
+          # Use git diff instead of parsing event payload (which is unreliable for merge commits)
+          if git diff --name-only HEAD^ HEAD | grep -q '^distribution/'; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "distribution/ was modified in this push, will publish"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "distribution/ was not modified in this push, skipping publish"
@@ -133,15 +137,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Unset cloud provider credentials for fork PRs (secrets not available)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+      - name: Unset cloud provider credentials for fork and Dependabot PRs (secrets not available)
+        if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork == true || github.secret_source == 'Dependabot')
         run: |
-          echo "Unsetting cloud provider credentials for fork PR (secrets not available)"
-          echo "VERTEX_AI_PROJECT=" >> "$GITHUB_ENV"
-          echo "OPENAI_API_KEY=" >> "$GITHUB_ENV"
+          echo "Unsetting cloud provider credentials for fork/Dependabot PR (secrets not available)"
+          {
+            echo "VERTEX_AI_PROJECT="
+            echo "GCP_WORKLOAD_IDENTITY_PROVIDER="
+            echo "OPENAI_API_KEY="
+          } >> "$GITHUB_ENV"
 
       - name: Authenticate to Google Cloud (Vertex)
-        if: github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+        if: github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.fork == false && github.secret_source != 'Dependabot'))
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
@@ -242,9 +249,9 @@ jobs:
         if: failure()
         run: echo "NOTIFY_FAILURE=1" >> "$GITHUB_ENV"
 
-      # Notify Slack: on success (when image published) or on failure
+      # Notify Slack: on success (when image published) or on failure; only on push/workflow_dispatch/schedule, not on pull_request
       - name: Notify Slack
-        if: always() && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true'))))
+        if: always() && github.event_name != 'pull_request' && (failure() || (success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && steps.distribution-changed.outputs.changed == 'true'))))
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
