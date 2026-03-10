@@ -36,8 +36,11 @@ PINNED_DEPENDENCIES = [
     "'setuptools==81.0.0'",  # due to bug in milvus-lite with unreleased fix: https://github.com/milvus-io/milvus-lite/pull/323
 ]
 
-source_install_command = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
+source_install_command_pypi_client = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
 RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_version}"""
+
+source_install_command_git_client = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
+RUN uv pip install --no-cache --no-deps git+https://github.com/llamastack/llama-stack-client-python.git@{llama_stack_client_version}"""
 
 
 def get_llama_stack_install(llama_stack_version):
@@ -50,15 +53,48 @@ def get_llama_stack_install(llama_stack_version):
     # If the version is a commit SHA or a short commit SHA, we need to install from source
     if is_install_from_source(llama_stack_version):
         print(f"Installing llama-stack from source: {llama_stack_version}")
-        return source_install_command.format(
+
+        # Determine if client should come from PyPI or git
+        # Version tags (v0.5.0+rhai0) use PyPI for client (stable release)
+        # Branch names (main, release-0.5.x) use git for client (matching branch)
+        if is_version_tag(llama_stack_version):
+            # Version tag - use PyPI for client (stable release)
+            template = source_install_command_pypi_client
+        else:
+            # Branch name - use git for client (matching branch)
+            template = source_install_command_git_client
+
+        return template.format(
             llama_stack_version=llama_stack_version,
             llama_stack_client_version=llama_stack_client_version,
         ).rstrip()
 
 
+def is_version_tag(version_str):
+    """Check if this looks like a version tag (e.g., v0.5.0, 0.5.0, v0.5.0+rhai0) vs a branch name (e.g., main, release-0.5.x)."""
+    # Strip +rhai suffix if present
+    base = version_str.split("+")[0]
+
+    # Version tags typically start with 'v' followed by a digit, or just start with a digit
+    # Examples: v0.5.0, v1.2.3, 0.5.0
+    # Branch names: main, develop, release-0.5.x, feature/foo
+    if base.startswith("v") and len(base) > 1 and base[1].isdigit():
+        return True
+    if base[0].isdigit():
+        return True
+    return False
+
+
 def is_install_from_source(llama_stack_version):
-    """Check if version string is a git commit SHA (no dots = SHA, has dots = version) or a custom version (contains +rhai)."""
-    return "." not in llama_stack_version or "+rhai" in llama_stack_version
+    """Check if version string requires git install (branch/commit) vs PyPI (version tag)."""
+    # Custom versions with +rhai suffix always install from source
+    if "+rhai" in llama_stack_version:
+        return True
+    # Version tags (v0.5.0, 0.5.0) use PyPI
+    if is_version_tag(llama_stack_version):
+        return False
+    # Everything else (branch names, commit SHAs) install from source
+    return True
 
 
 def check_command_installed(command, package_name=None):
