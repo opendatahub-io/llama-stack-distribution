@@ -168,6 +168,8 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         id: smoke-test
         shell: bash
+        env:
+          IMAGE_TAG: ${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
         run: ./tests/smoke.sh
 
       - name: Integration tests
@@ -255,7 +257,7 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
+          IMAGE_TAG: ${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/actions/notify-slack/notify.sh
@@ -264,8 +266,8 @@ jobs:
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         run: |
           echo "✅ Custom container image built successfully!"
-          echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}-${{ github.sha }}"
           echo "🔗 Llama Stack commit: ${{ env.LLAMA_STACK_COMMIT_SHA }}"
           echo ""
           echo "You can pull this image using:"
-          echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}-${{ github.sha }}"
