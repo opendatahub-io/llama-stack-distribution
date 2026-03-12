@@ -47,7 +47,7 @@ function start_and_wait_for_llama_stack_container {
     docker_args+=(--env "OPENAI_API_KEY=$OPENAI_API_KEY")
   fi
 
-  docker_args+=(--name llama-stack "$IMAGE_NAME:$GITHUB_SHA")
+  docker_args+=(--name llama-stack "$IMAGE_NAME:${IMAGE_TAG:-$GITHUB_SHA}")
 
   # Start llama stack
   docker run "${docker_args[@]}"
@@ -207,10 +207,15 @@ main() {
     fi
   done
 
-  # Verify PostgreSQL tables and data
+  # Verify PostgreSQL tables exist (while server is still running)
   if ! test_postgres_tables_exist; then
     failed_checks+=("postgres:tables")
   fi
+
+  # Stop llama-stack to flush async write queue before checking data
+  echo "===> Stopping Llama Stack container to flush write queue..."
+  docker stop llama-stack || true
+
   if ! test_postgres_populated; then
     failed_checks+=("postgres:data")
   fi
