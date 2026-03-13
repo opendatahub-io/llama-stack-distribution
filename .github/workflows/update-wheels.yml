@@ -1,0 +1,234 @@
+name: Update Wheels
+
+run-name: "Update wheels to ${{ github.event.client_payload.build_id }}"
+
+on:
+  repository_dispatch:
+    types: [update-wheels]
+
+permissions: {}
+
+env:
+  BUILD_ID: ${{ github.event.client_payload.build_id }}
+  BRANCH: chore/update-wheels-${{ github.event.client_payload.build_id }}
+  CONF_FILE: konflux/cpu-ubi9.conf
+  SOURCE_RUN_URL: ${{ github.event.client_payload.source_run_url }}
+  PIPELINE_REPO_URL: https://gitlab.com/redhat/rhel-ai/llama-stack/pipeline
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.client_payload.build_id }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_continue: ${{ steps.checks.outputs.should_continue }}
+    steps:
+      - name: Validate event payload
+        run: |
+          if [[ -z "$BUILD_ID" ]]; then
+            echo "::error::Missing 'build_id' in repository_dispatch client_payload"
+            exit 1
+          fi
+          echo "Validated build_id: $BUILD_ID"
+
+          # Validate source_run_url if provided (untrusted input from client_payload)
+          if [[ -n "${SOURCE_RUN_URL}" ]]; then
+            if [[ ! "${SOURCE_RUN_URL}" =~ ^${PIPELINE_REPO_URL}/-/pipelines/[0-9]+$ ]]; then
+              echo "::error::source_run_url does not match expected pattern: ${PIPELINE_REPO_URL}/-/pipelines/<id>"
+              exit 1
+            fi
+            echo "Validated source_run_url: $SOURCE_RUN_URL"
+          fi
+
+      - name: Checkout main branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+
+      - name: Run preflight checks
+        id: checks
+        run: |
+          # This workflow may be triggered more than once per build (e.g.,
+          # once per architecture), so a pre-existing branch or an already-
+          # merged wheel ID update is expected and not an error.
+
+          SHOULD_CONTINUE=true
+
+          if git ls-remote --exit-code --heads origin "refs/heads/${BRANCH}" > /dev/null 2>&1; then
+            echo "::notice::Branch ${BRANCH} already exists on remote — skipping (likely a duplicate trigger)"
+            SHOULD_CONTINUE=false
+          fi
+
+          if grep -q "WHEEL_RELEASE_AARCH64=${BUILD_ID}+" "$CONF_FILE" \
+            && grep -q "WHEEL_RELEASE_X86_64=${BUILD_ID}+" "$CONF_FILE"; then
+            echo "::notice::Wheel versions already set to ${BUILD_ID} — nothing to update"
+            SHOULD_CONTINUE=false
+          fi
+
+          if [[ "$SHOULD_CONTINUE" == "true" ]]; then
+            echo "All preflight checks passed, proceeding with update"
+          fi
+          echo "should_continue=$SHOULD_CONTINUE" >> "$GITHUB_OUTPUT"
+
+  update-wheels:
+    needs: preflight
+    if: needs.preflight.outputs.should_continue == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
+      SLACK_GROUP_LLAMASTACK_RELEASE_MANAGERS: S0AHXK52HGD
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Capture old values
+        id: old-values
+        run: |
+          OLD_AARCH64=$(grep '^WHEEL_RELEASE_AARCH64=' "$CONF_FILE" | cut -d= -f2) \
+            || { echo "::error::Could not find WHEEL_RELEASE_AARCH64 in ${CONF_FILE}"; exit 1; }
+          OLD_X86_64=$(grep '^WHEEL_RELEASE_X86_64=' "$CONF_FILE" | cut -d= -f2) \
+            || { echo "::error::Could not find WHEEL_RELEASE_X86_64 in ${CONF_FILE}"; exit 1; }
+
+          echo "old_aarch64=$OLD_AARCH64" >> "$GITHUB_OUTPUT"
+          echo "old_x86_64=$OLD_X86_64" >> "$GITHUB_OUTPUT"
+          echo "Current WHEEL_RELEASE_AARCH64: $OLD_AARCH64"
+          echo "Current WHEEL_RELEASE_X86_64: $OLD_X86_64"
+
+      - name: Create update branch
+        run: git checkout -b "$BRANCH"
+
+      - name: Update wheel release versions
+        run: |
+          # Replace the version segment (everything before '+') with the new build_id
+          sed -i "s|^\(WHEEL_RELEASE_AARCH64=\)[^+]*+|\1${BUILD_ID}+|" "$CONF_FILE"
+          grep -q "WHEEL_RELEASE_AARCH64=${BUILD_ID}+" "$CONF_FILE" \
+            || { echo "::error::Failed to update WHEEL_RELEASE_AARCH64 to ${BUILD_ID}"; exit 1; }
+
+          sed -i "s|^\(WHEEL_RELEASE_X86_64=\)[^+]*+|\1${BUILD_ID}+|" "$CONF_FILE"
+          grep -q "WHEEL_RELEASE_X86_64=${BUILD_ID}+" "$CONF_FILE" \
+            || { echo "::error::Failed to update WHEEL_RELEASE_X86_64 to ${BUILD_ID}"; exit 1; }
+
+          echo "Updated wheel release versions to ${BUILD_ID}"
+          echo "::group::Updated ${CONF_FILE}"
+          cat "$CONF_FILE"
+          echo "::endgroup::"
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$CONF_FILE"
+          git commit -m "chore: update wheels to ${BUILD_ID}"
+
+      - name: Push branch
+        run: git push origin "$BRANCH"
+
+      - name: Open pull request
+        id: create-pr
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          OLD_AARCH64: ${{ steps.old-values.outputs.old_aarch64 }}
+          OLD_X86_64: ${{ steps.old-values.outputs.old_x86_64 }}
+        run: |
+          SOURCE_LINE=""
+          if [[ -n "${SOURCE_RUN_URL}" ]]; then
+            SOURCE_LINE="Triggered by: [pipeline run](${SOURCE_RUN_URL})"
+          fi
+          export BUILD_ID OLD_AARCH64 OLD_X86_64 CONF_FILE SOURCE_LINE
+
+          BODY=$(envsubst <<'EOF'
+          ## Summary
+
+          Update wheel release versions to build `${BUILD_ID}`
+
+          | Variable | Old | New |
+          |----------|-----|-----|
+          | `WHEEL_RELEASE_AARCH64` | `${OLD_AARCH64}` | `${BUILD_ID}+llama-stack-cpu-ubi9-aarch64` |
+          | `WHEEL_RELEASE_X86_64` | `${OLD_X86_64}` | `${BUILD_ID}+llama-stack-cpu-ubi9-x86_64` |
+
+          ## Source
+          ${SOURCE_LINE}
+
+          ## Test plan
+
+          - [ ] Verify the updated values in `${CONF_FILE}`
+          - [ ] Confirm the wheel packages exist for the new build ID
+          - [ ] Merge and confirm the distribution container build succeeds
+          EOF
+          )
+
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: update wheels to ${BUILD_ID}" \
+            --body "$BODY")
+
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "Created PR: $PR_URL"
+
+      - name: Notify Slack (success)
+        if: success()
+        run: |
+          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
+          PR_URL="${{ steps.create-pr.outputs.pr_url }}"
+
+          TEXT=$(printf '%s\n%s\n%s\n%s' \
+            ":greenchecked: *Wheel update to \`${BUILD_ID}\` is ready for review*" \
+            "PR: <${PR_URL}|Review and merge>" \
+            "<${WORKFLOW_URL}|View workflow run>" \
+            "cc <!subteam^${SLACK_GROUP_LLAMASTACK_RELEASE_MANAGERS}>")
+
+          PAYLOAD=$(jq -n --arg text "$TEXT" '{
+            attachments: [{
+              color: "#46567f",
+              blocks: [{ type: "section", text: { type: "mrkdwn", text: $text } }]
+            }]
+          }')
+
+          curl -sf --connect-timeout 5 --max-time 10 \
+            -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" \
+            && echo "Slack notification sent" \
+            || echo "::warning::Failed to send Slack notification"
+
+      - name: Notify Slack (failure)
+        if: failure()
+        run: |
+          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
+
+          TEXT=$(printf '%s\n%s\n%s\n%s' \
+            ":failed: *Failed to create wheel update PR*" \
+            "Build ID: \`${BUILD_ID}\`" \
+            "<${WORKFLOW_URL}|View workflow run>" \
+            "cc <!subteam^${SLACK_GROUP_LLAMASTACK_RELEASE_MANAGERS}>")
+
+          PAYLOAD=$(jq -n --arg text "$TEXT" '{
+            attachments: [{
+              color: "#d00000",
+              blocks: [{ type: "section", text: { type: "mrkdwn", text: $text } }]
+            }]
+          }')
+
+          curl -sf --connect-timeout 5 --max-time 10 \
+            -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" \
+            && echo "Slack failure notification sent" \
+            || echo "::warning::Failed to send Slack notification"
