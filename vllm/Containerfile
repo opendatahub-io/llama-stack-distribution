@@ -1,114 +1,10 @@
-# Build vLLM from source with AVX2 support (no AVX-512 requirement)
-# to ensure compatibility across all x86-64 platforms, including
-# GitHub Actions runners which may lack AVX-512.
+# Use the pre-built vLLM CPU image for OpenAI-compatible serving.
 #
-# Based on: https://github.com/vllm-project/vllm/blob/main/docker/Dockerfile.cpu
+# Reference: https://hub.docker.com/r/vllm/vllm-openai-cpu
 
-ARG VLLM_VERSION=v0.17.0
-ARG PYTHON_VERSION=3.12
+FROM vllm/vllm-openai-cpu:v0.17.1
 
-######################### BUILD STAGE #########################
-FROM ubuntu:22.04 AS build
-
-ARG VLLM_VERSION
-ARG PYTHON_VERSION
-ARG PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-
-WORKDIR /workspace
-
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-       sudo ccache git curl wget ca-certificates \
-       gcc-12 g++-12 libtcmalloc-minimal4 libnuma-dev \
-       ffmpeg libsm6 libxext6 libgl1 \
-    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 \
-       --slave /usr/bin/g++ g++ /usr/bin/g++-12 \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
-
-ENV CC=/usr/bin/gcc-12 CXX=/usr/bin/g++-12
-ENV CCACHE_DIR=/root/.cache/ccache
-ENV CMAKE_CXX_COMPILER_LAUNCHER=ccache
-ENV PATH="/root/.local/bin:$PATH"
-ENV VIRTUAL_ENV="/opt/venv"
-ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
-ENV UV_HTTP_TIMEOUT=500
-ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_INDEX_STRATEGY="unsafe-best-match"
-ENV UV_LINK_MODE="copy"
-
-RUN uv venv --python ${PYTHON_VERSION} --seed ${VIRTUAL_ENV}
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-RUN git clone --depth 1 --branch ${VLLM_VERSION} \
-    https://github.com/vllm-project/vllm.git /vllm
-
-WORKDIR /vllm
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --upgrade pip && \
-    uv pip install -r requirements/cpu.txt && \
-    uv pip install -r requirements/cpu-build.txt
-
-# Build with AVX2 only — disabling AVX-512 ensures the wheel runs on
-# any x86-64 CPU with AVX2 (all GitHub Actions runners, AMD EPYC Zen 1-3, etc.)
-ENV VLLM_CPU_DISABLE_AVX512=1
-ENV VLLM_CPU_AVX2=1
-ENV VLLM_TARGET_DEVICE=cpu
-ARG MAX_JOBS=4
-ENV MAX_JOBS=${MAX_JOBS}
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=cache,target=/root/.cache/ccache \
-    python3 setup.py bdist_wheel --dist-dir=dist
-
-######################### RELEASE STAGE #########################
-FROM ubuntu:22.04 AS release
-
-ARG PYTHON_VERSION=3.12
-ARG PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-
-WORKDIR /workspace
-
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-       curl ca-certificates libtcmalloc-minimal4 libnuma-dev \
-       ffmpeg libsm6 libxext6 libgl1 \
-       gcc-12 g++-12 \
-    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 \
-       --slave /usr/bin/g++ g++ /usr/bin/g++-12 \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
-
-ENV PATH="/root/.local/bin:$PATH"
-ENV VIRTUAL_ENV="/opt/venv"
-ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
-ENV UV_HTTP_TIMEOUT=500
-ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_INDEX_STRATEGY="unsafe-best-match"
-ENV UV_LINK_MODE="copy"
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4"
-
-RUN uv venv --python ${PYTHON_VERSION} --seed ${VIRTUAL_ENV}
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-COPY --from=build /vllm/requirements/ requirements/
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --upgrade pip && \
-    uv pip install -r requirements/cpu.txt
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,from=build,src=/vllm/dist,target=/tmp/dist \
-    uv pip install /tmp/dist/*.whl
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install "huggingface-hub[cli]"
-
-RUN echo 'ulimit -c 0' >> ~/.bashrc
+RUN pip install "huggingface-hub[cli]"
 
 # Model configuration
 ARG INFERENCE_MODEL=""
@@ -131,9 +27,9 @@ RUN --mount=type=secret,id=hf_token \
         mkdir -p "${model_path}" && \
         if [ -f /run/secrets/hf_token ]; then \
             HF_TOKEN=$(cat /run/secrets/hf_token) && \
-            hf download "${model}" --local-dir "${model_path}" --token "${HF_TOKEN}"; \
+            huggingface-cli download "${model}" --local-dir "${model_path}" --token "${HF_TOKEN}"; \
         else \
-            hf download "${model}" --local-dir "${model_path}"; \
+            huggingface-cli download "${model}" --local-dir "${model_path}"; \
         fi && \
         rm -rf /root/.cache/huggingface "${model_path}/original"; \
     done
