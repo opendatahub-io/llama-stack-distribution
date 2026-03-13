@@ -76,7 +76,7 @@ function run_integration_tests() {
     uv venv
     # shellcheck source=/dev/null
     source .venv/bin/activate
-    uv pip install llama-stack-client
+    uv pip install llama-stack-client ollama
     uv run pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
         --text-model="$model" \

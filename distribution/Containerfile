@@ -13,7 +13,8 @@ RUN uv pip install --upgrade \
     'aiobotocore==2.16.1' \
     'ibm-cos-sdk-core==2.14.2' \
     'ibm-cos-sdk==2.14.2' \
-    'setuptools==81.0.0'
+    'setuptools==81.0.0' \
+    'pymilvus[milvus-lite]==2.6.9'
 RUN uv pip install \
     'datasets>=4.0.0' \
     'fonttools>=4.60.2' \
@@ -62,7 +63,7 @@ RUN uv pip install \
 RUN uv pip install \
     llama_stack_provider_trustyai_fms==0.4.0
 RUN uv pip install \
-    llama_stack_provider_trustyai_garak==0.3.0
+    llama_stack_provider_trustyai_garak==0.3.1
 RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.6.0.1+rhai0
