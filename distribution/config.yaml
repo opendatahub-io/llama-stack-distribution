@@ -162,7 +162,7 @@ providers:
         pipelines_api_token: ${env.KUBEFLOW_PIPELINES_TOKEN:=}
   - provider_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak_remote}
     provider_type: remote::trustyai_garak
-    module: llama_stack_provider_trustyai_garak==0.2.0
+    module: llama_stack_provider_trustyai_garak==0.3.0
     config:
       llama_stack_url: ${env.KUBEFLOW_LLAMA_STACK_URL:=}
       kubeflow_config:
@@ -332,6 +332,12 @@ registered_resources:
       - garak_scoring
     provider_id: trustyai_garak_remote
     provider_benchmark_id: trustyai_garak::cwe
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::intents}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: trustyai_garak::intents
   tool_groups:
   - toolgroup_id: builtin::websearch
     provider_id: tavily-search
