@@ -44,13 +44,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
-      VERTEX_AI_LOCATION: us-central1
+      VERTEX_AI_LOCATION: -us-west1
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       # Deployment configuration - Llama Stack will support vLLM, Vertex AI, and OpenAI
       # Model names include provider prefixes for consistency
       VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
-      VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
+      VERTEX_AI_INFERENCE_MODEL: vertexai/publishers/google/models/gemma3
       OPENAI_INFERENCE_MODEL: openai/gpt-4o-mini
       EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
