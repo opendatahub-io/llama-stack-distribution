@@ -1,28 +1,27 @@
 name: Setup VLLM
-description: Start VLLM
+description: Install and start VLLM (CPU)
 runs:
   using: "composite"
   steps:
     - name: Start VLLM
       shell: bash
       run: |
-        # Start vllm container
-        docker run -d \
-          --name vllm \
-          --privileged=true \
-          --net=host \
-          quay.io/higginsd/vllm-cpu:65393ee064-qwen3 \
+        uv venv
+        uv pip install --index https://download.pytorch.org/whl/cpu torch==2.10.0+cpu torchvision
+        uv pip install vllm-cpu==v0.15.0
+
+        # Need to pin numpy to 2.2.6 for vllm-cpu==v0.15.0, "ImportError: Numba needs NumPy 2.2 or less. Got NumPy 2.3."
+        uv run --with numpy==2.2.6 vllm serve Qwen/Qwen3-0.6B \
           --host 0.0.0.0 \
           --port 8000 \
           --enable-auto-tool-choice \
           --tool-call-parser hermes \
-          --model /root/.cache/Qwen3-0.6B \
           --served-model-name Qwen/Qwen3-0.6B \
-          --max-model-len 8192
+          --max-model-len 8192 \
+          > /tmp/vllm.log 2>&1 &
 
-          # Wait for vllm to be ready
-          echo "Waiting for vllm to be ready..."
-          timeout 900 bash -c 'until curl -fsS http://localhost:8000/health >/dev/null; do
-            echo "Waiting for vllm..."
-            sleep 5
-          done'
+        echo "Waiting for vllm to be ready..."
+        timeout 900 bash -c 'until curl -f http://localhost:8000/health; do
+          echo "Waiting for vllm..."
+          sleep 5
+        done'
