@@ -4,7 +4,7 @@
 
 This image contains the official Open Data Hub Llama Stack distribution, with all the packages and configuration needed to run a Llama Stack server in a containerized environment.
 
-The image is currently shipping with the Open Data Hub version of Llama Stack version [0.5.0+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.5.0+rhai0)
+The image is currently shipping with the Open Data Hub version of Llama Stack version [0.6.0.1+rhai0](https://github.com/opendatahub-io/llama-stack/releases/tag/v0.6.0.1+rhai0)
 
 You can see an overview of the APIs and Providers the image ships with in the table below.
 
@@ -15,7 +15,7 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
 | eval | inline::trustyai_ragas | Yes (version 0.6.0) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
-| eval | remote::trustyai_garak | Yes (version 0.3.0) | ❌ | Set the `ENABLE_KUBEFLOW_GARAK` environment variable |
+| eval | remote::trustyai_garak | Yes (version 0.3.1) | ❌ | Set the `ENABLE_KUBEFLOW_GARAK` environment variable |
 | eval | remote::trustyai_lmeval | Yes (version 0.5.0) | ✅ | N/A |
 | eval | remote::trustyai_ragas | Yes (version 0.6.0) | ❌ | Set the `ENABLE_KUBEFLOW_RAGAS` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
