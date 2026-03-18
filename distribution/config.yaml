@@ -135,13 +135,13 @@ providers:
         #   tenant_id: X-Tenant-Id
         #   team_id: X-Team-Id
   agents:
-  - provider_id: meta-reference
-    provider_type: inline::meta-reference
+  - provider_id: builtin
+    provider_type: inline::builtin
     config:
       persistence:
         agent_state:
           backend: kv_default
-          namespace: agents::meta_reference
+          namespace: agents::builtin
         responses:
           backend: sql_default
           table_name: agents_responses
@@ -227,7 +227,7 @@ providers:
     provider_type: remote::model-context-protocol
     config: {}
   files:
-  - provider_id: meta-reference-files
+  - provider_id: builtin-files
     provider_type: inline::localfs
     config:
       storage_dir: /opt/app-root/src/.llama/distributions/rh/files
