@@ -19,8 +19,6 @@ function start_and_wait_for_llama_stack_container {
     --env "INFERENCE_MODEL=$VLLM_INFERENCE_MODEL"
     --env "EMBEDDING_MODEL=$EMBEDDING_MODEL"
     --env "VLLM_URL=$VLLM_URL"
-    --env "ENABLE_SENTENCE_TRANSFORMERS=True"
-    --env "EMBEDDING_PROVIDER=sentence-transformers"
     --env "TRUSTYAI_LMEVAL_USE_K8S=False"
     --env "POSTGRES_HOST=${POSTGRES_HOST:-localhost}"
     --env "POSTGRES_PORT=${POSTGRES_PORT:-5432}"
@@ -28,6 +26,32 @@ function start_and_wait_for_llama_stack_container {
     --env "POSTGRES_USER=${POSTGRES_USER:-llamastack}"
     --env "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-llamastack}"
   )
+
+  # Conditionally add vLLM API token (needed for MaaS)
+  if [ -n "${VLLM_API_TOKEN:-}" ]; then
+    docker_args+=(--env "VLLM_API_TOKEN=$VLLM_API_TOKEN")
+  fi
+
+  # Conditionally add embedding configuration
+  # MaaS path: VLLM_EMBEDDING_URL is set, use vllm-embedding provider
+  # Local path: ENABLE_SENTENCE_TRANSFORMERS is set, use sentence-transformers provider
+  if [ -n "${VLLM_EMBEDDING_URL:-}" ]; then
+    docker_args+=(
+      --env "VLLM_EMBEDDING_URL=$VLLM_EMBEDDING_URL"
+      --env "EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-vllm-embedding}"
+    )
+    if [ -n "${VLLM_EMBEDDING_API_TOKEN:-}" ]; then
+      docker_args+=(--env "VLLM_EMBEDDING_API_TOKEN=$VLLM_EMBEDDING_API_TOKEN")
+    fi
+    if [ -n "${EMBEDDING_PROVIDER_MODEL_ID:-}" ]; then
+      docker_args+=(--env "EMBEDDING_PROVIDER_MODEL_ID=$EMBEDDING_PROVIDER_MODEL_ID")
+    fi
+  else
+    docker_args+=(
+      --env "ENABLE_SENTENCE_TRANSFORMERS=${ENABLE_SENTENCE_TRANSFORMERS:-True}"
+      --env "EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-sentence-transformers}"
+    )
+  fi
 
   # Only add Vertex AI configuration if VERTEX_AI_PROJECT is set
   if [ -n "${VERTEX_AI_PROJECT:-}" ]; then

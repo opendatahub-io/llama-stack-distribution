@@ -69,6 +69,13 @@ podman run \
 > [!IMPORTANT]
 > The distribution image ships with various dependencies already pre-installed. There is *no* guarantee that your custom run YAML will necessarily work with the included dependencies.
 
+## ARM64 Support
+
+The distribution image supports both amd64 and arm64 architectures. ARM64 inference testing in CI uses remote vLLM MaaS (Model-as-a-Service) endpoints via the `remote::vllm` provider, making the same endpoint usable from both amd64 and arm64 runners.
+
+> [!NOTE]
+> Fork PRs only verify that the ARM64 image builds (no runtime tests, since MaaS secrets are unavailable). Full ARM64 testing runs on origin PRs and post-merge before publishing.
+
 ## Slack Build Notifications
 
 Slack notifications are sent on successful image push (`push`/`workflow_dispatch`) and on build failures.
