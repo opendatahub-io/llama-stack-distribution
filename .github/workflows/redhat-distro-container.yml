@@ -109,7 +109,9 @@ jobs:
           # now remove the install line from the Containerfile
           cd -
           # Swap config for upstream-main compatibility before build.py validates it
-          cp distribution/config.main.yaml distribution/config.yaml
+          if [ "$LLAMA_STACK_VERSION" = "main" ]; then
+            cp distribution/config.main.yaml distribution/config.yaml
+          fi
           python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
