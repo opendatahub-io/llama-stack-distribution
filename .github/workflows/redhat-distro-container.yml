@@ -54,7 +54,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
-      VERTEX_AI_LOCATION: us-central1
+      VERTEX_AI_LOCATION: global
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       # MaaS vLLM endpoints (used for both arches on origin PRs)
