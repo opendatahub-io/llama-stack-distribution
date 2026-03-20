@@ -152,14 +152,19 @@ jobs:
 
       - name: Configure MaaS vLLM endpoints
         if: env.MAAS_VLLM_URL != ''
+        env:
+          _MAAS_VLLM_URL: ${{ env.MAAS_VLLM_URL }}
+          _MAAS_VLLM_API_TOKEN: ${{ env.MAAS_VLLM_API_TOKEN }}
+          _MAAS_EMBEDDING_URL: ${{ env.MAAS_EMBEDDING_URL }}
+          _MAAS_EMBEDDING_API_TOKEN: ${{ env.MAAS_EMBEDDING_API_TOKEN }}
         run: |
           echo "Configuring MaaS vLLM endpoints for testing"
           {
-            echo "VLLM_URL=${{ env.MAAS_VLLM_URL }}"
-            echo "VLLM_API_TOKEN=${{ env.MAAS_VLLM_API_TOKEN }}"
+            echo "VLLM_URL=$_MAAS_VLLM_URL"
+            echo "VLLM_API_TOKEN=$_MAAS_VLLM_API_TOKEN"
             echo "VLLM_INFERENCE_MODEL=vllm-inference/llama-3-2-3b"
-            echo "VLLM_EMBEDDING_URL=${{ env.MAAS_EMBEDDING_URL }}"
-            echo "VLLM_EMBEDDING_API_TOKEN=${{ env.MAAS_EMBEDDING_API_TOKEN }}"
+            echo "VLLM_EMBEDDING_URL=$_MAAS_EMBEDDING_URL"
+            echo "VLLM_EMBEDDING_API_TOKEN=$_MAAS_EMBEDDING_API_TOKEN"
             echo "EMBEDDING_MODEL=vllm-embedding/nomic-embed-text-v1-5"
             echo "EMBEDDING_PROVIDER=vllm-embedding"
             echo "EMBEDDING_PROVIDER_MODEL_ID=nomic-embed-text-v1-5"
