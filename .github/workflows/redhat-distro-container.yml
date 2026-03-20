@@ -64,7 +64,7 @@ jobs:
       MAAS_EMBEDDING_API_TOKEN: ${{ secrets.MAAS_EMBEDDING_API_TOKEN }}
       # Model names - set defaults, overridden by MaaS configuration step
       VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
-      VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
+      VERTEX_AI_INFERENCE_MODEL: publishers/google/models/gemini-2.0-flash
       OPENAI_INFERENCE_MODEL: openai/gpt-4o-mini
       EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
