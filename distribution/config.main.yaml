@@ -1,0 +1,367 @@
+version: 2
+image_name: rh
+apis:
+- agents
+- batches
+- datasetio
+- eval
+- inference
+- safety
+- scoring
+- tool_runtime
+- vector_io
+- files
+providers:
+  inference:
+  - provider_id: ${env.VLLM_URL:+vllm-inference}
+    provider_type: remote::vllm
+    config:
+      base_url: ${env.VLLM_URL:=}
+      max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
+      api_token: ${env.VLLM_API_TOKEN:=fake}
+      tls_verify: ${env.VLLM_TLS_VERIFY:=true}
+  - provider_id: ${env.VLLM_EMBEDDING_URL:+vllm-embedding}
+    provider_type: remote::vllm
+    config:
+      base_url: ${env.VLLM_EMBEDDING_URL:=}
+      max_tokens: ${env.VLLM_EMBEDDING_MAX_TOKENS:=4096}
+      api_token: ${env.VLLM_EMBEDDING_API_TOKEN:=fake}
+      tls_verify: ${env.VLLM_EMBEDDING_TLS_VERIFY:=true}
+  - provider_id: ${env.AWS_BEARER_TOKEN_BEDROCK:+bedrock}
+    provider_type: remote::bedrock
+    config:
+      api_key: ${env.AWS_BEARER_TOKEN_BEDROCK:=}
+      region_name: ${env.AWS_DEFAULT_REGION:=us-east-2}
+  - provider_id: ${env.ENABLE_SENTENCE_TRANSFORMERS:+sentence-transformers}
+    provider_type: inline::sentence-transformers
+    config: {}
+  - provider_id: ${env.WATSONX_API_KEY:+watsonx}
+    provider_type: remote::watsonx
+    config:
+      base_url: ${env.WATSONX_BASE_URL:=https://us-south.ml.cloud.ibm.com}
+      api_key: ${env.WATSONX_API_KEY:=}
+      project_id: ${env.WATSONX_PROJECT_ID:=}
+  - provider_id: ${env.AZURE_API_KEY:+azure}
+    provider_type: remote::azure
+    config:
+      api_key: ${env.AZURE_API_KEY:=}
+      api_base: ${env.AZURE_API_BASE:=}
+      api_version: ${env.AZURE_API_VERSION:=}
+      api_type: ${env.AZURE_API_TYPE:=}
+  - provider_id: ${env.VERTEX_AI_PROJECT:+vertexai}
+    provider_type: remote::vertexai
+    config:
+      project: ${env.VERTEX_AI_PROJECT:=}
+      location: ${env.VERTEX_AI_LOCATION:=us-central1}
+  - provider_id: ${env.OPENAI_API_KEY:+openai}
+    provider_type: remote::openai
+    config:
+      api_key: ${env.OPENAI_API_KEY:=}
+      base_url: ${env.OPENAI_BASE_URL:=https://api.openai.com/v1}
+  vector_io:
+  - provider_id: milvus
+    provider_type: inline::milvus
+    config:
+      db_path: /opt/app-root/src/.llama/distributions/rh/milvus.db
+      persistence:
+        backend: kv_default
+        namespace: vector_io::milvus
+  - provider_id: ${env.ENABLE_FAISS:+faiss}
+    provider_type: inline::faiss
+    config:
+      persistence:
+        backend: kv_default
+        namespace: vector_io::faiss
+  - provider_id: ${env.MILVUS_ENDPOINT:+milvus-remote}
+    provider_type: remote::milvus
+    config:
+      uri: ${env.MILVUS_ENDPOINT:=}
+      token: ${env.MILVUS_TOKEN:=}
+      secure: ${env.MILVUS_SECURE:=}
+      consistency_level: ${env.MILVUS_CONSISTENCY_LEVEL:=}
+      ca_pem_path: ${env.MILVUS_CA_PEM_PATH:=}
+      client_pem_path: ${env.MILVUS_CLIENT_PEM_PATH:=}
+      client_key_path: ${env.MILVUS_CLIENT_KEY_PATH:=}
+      persistence:
+        backend: kv_default
+        namespace: vector_io::milvus_remote
+  - provider_id: ${env.ENABLE_PGVECTOR:+pgvector}
+    provider_type: remote::pgvector
+    config:
+      host: ${env.PGVECTOR_HOST:=localhost}
+      port: ${env.PGVECTOR_PORT:=5432}
+      db: ${env.PGVECTOR_DB:=}
+      user: ${env.PGVECTOR_USER:=}
+      password: ${env.PGVECTOR_PASSWORD:=}
+      persistence:
+        backend: kv_default
+        namespace: vector_io::pgvector
+  - provider_id: ${env.ENABLE_QDRANT:+qdrant-remote}
+    provider_type: remote::qdrant
+    config:
+      location: ${env.QDRANT_LOCATION:=}
+      url: ${env.QDRANT_URL:=}
+      port: ${env.QDRANT_PORT:=6333}
+      grpc_port: ${env.QDRANT_GRPC_PORT:=6334}
+      prefer_grpc: ${env.QDRANT_PREFER_GRPC:=false}
+      https: ${env.QDRANT_HTTPS:=}
+      api_key: ${env.QDRANT_API_KEY:=}
+      prefix: ${env.QDRANT_PREFIX:=}
+      timeout: ${env.QDRANT_TIMEOUT:=}
+      host: ${env.QDRANT_HOST:=}
+      persistence:
+        backend: kv_default
+        namespace: vector_io::qdrant_remote
+  safety:
+    - provider_id: trustyai_fms
+      provider_type: remote::trustyai_fms
+      module: llama_stack_provider_trustyai_fms==0.4.0
+      config:
+        orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
+        ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
+        shields: {}
+    - provider_id: ${env.PASSTHROUGH_SAFETY_URL:+passthrough}
+      provider_type: remote::passthrough
+      config:
+        base_url: ${env.PASSTHROUGH_SAFETY_URL:=}
+        api_key: ${env.PASSTHROUGH_SAFETY_API_KEY:=}
+        # forward_headers maps keys from X-LlamaStack-Provider-Data to outbound
+        # HTTP headers sent to the downstream service. use this when callers pass
+        # per-request credentials (e.g. a tenant API token) rather than a shared
+        # static key. omit api_key above if you rely solely on forwarded headers.
+        #
+        # forward_headers:
+        #   maas_api_token: Authorization   # X-LlamaStack-Provider-Data key → header
+        #   tenant_id: X-Tenant-Id
+        #   team_id: X-Team-Id
+  agents:
+  - provider_id: meta-reference
+    provider_type: inline::builtin
+    config:
+      persistence:
+        agent_state:
+          backend: kv_default
+          namespace: agents::meta_reference
+        responses:
+          backend: sql_default
+          table_name: agents_responses
+          max_write_queue_size: 10000
+          num_writers: 4
+  eval:
+  - provider_id: trustyai_lmeval
+    provider_type: remote::trustyai_lmeval
+    module: llama_stack_provider_lmeval==0.5.0
+    config:
+      use_k8s: ${env.TRUSTYAI_LMEVAL_USE_K8S:=true}
+      base_url: ${env.VLLM_URL:=http://localhost:8000/v1}
+  - provider_id: ${env.TRUSTYAI_EMBEDDING_MODEL:+trustyai_ragas_inline}
+    provider_type: inline::trustyai_ragas
+    module: llama_stack_provider_ragas.inline==0.6.0
+    config:
+      embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
+  - provider_id: ${env.ENABLE_KUBEFLOW_RAGAS:+trustyai_ragas_remote}
+    provider_type: remote::trustyai_ragas
+    module: llama_stack_provider_ragas.remote==0.6.0
+    config:
+      embedding_model: ${env.TRUSTYAI_EMBEDDING_MODEL:=}
+      kubeflow_config:
+        results_s3_prefix: ${env.KUBEFLOW_RESULTS_S3_PREFIX:=}
+        results_s3_endpoint: ${env.KUBEFLOW_RESULTS_S3_ENDPOINT:=https://s3.us-east-1.amazonaws.com}
+        results_s3_path_style: ${env.KUBEFLOW_RESULTS_S3_PATH_STYLE:=false}
+        s3_credentials_secret_name: ${env.KUBEFLOW_S3_CREDENTIALS_SECRET_NAME:=}
+        pipelines_endpoint: ${env.KUBEFLOW_PIPELINES_ENDPOINT:=}
+        namespace: ${env.KUBEFLOW_NAMESPACE:=}
+        llama_stack_url: ${env.KUBEFLOW_LLAMA_STACK_URL:=}
+        base_image: ${env.KUBEFLOW_BASE_IMAGE:=}
+        pipelines_api_token: ${env.KUBEFLOW_PIPELINES_TOKEN:=}
+  - provider_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak_remote}
+    provider_type: remote::trustyai_garak
+    module: llama_stack_provider_trustyai_garak==0.3.1
+    config:
+      llama_stack_url: ${env.KUBEFLOW_LLAMA_STACK_URL:=}
+      kubeflow_config:
+        pipelines_endpoint: ${env.KUBEFLOW_PIPELINES_ENDPOINT:=}
+        namespace: ${env.KUBEFLOW_NAMESPACE:=}
+        garak_base_image: ${env.KUBEFLOW_GARAK_BASE_IMAGE:=}
+        pipelines_api_token: ${env.KUBEFLOW_PIPELINES_TOKEN:=}
+        experiment_name: ${env.KUBEFLOW_EXPERIMENT_NAME:=}
+  datasetio:
+  - provider_id: huggingface
+    provider_type: remote::huggingface
+    config:
+      kvstore:
+        backend: kv_default
+        namespace: datasetio::huggingface
+  - provider_id: localfs
+    provider_type: inline::localfs
+    config:
+      kvstore:
+        backend: kv_default
+        namespace: datasetio::localfs
+  scoring:
+  - provider_id: basic
+    provider_type: inline::basic
+    config: {}
+  - provider_id: llm-as-judge
+    provider_type: inline::llm-as-judge
+    config: {}
+  - provider_id: braintrust
+    provider_type: inline::braintrust
+    config:
+      openai_api_key: ${env.OPENAI_API_KEY:=}
+  tool_runtime:
+  - provider_id: brave-search
+    provider_type: remote::brave-search
+    config:
+      api_key: ${env.BRAVE_SEARCH_API_KEY:=}
+      max_results: 3
+  - provider_id: tavily-search
+    provider_type: remote::tavily-search
+    config:
+      api_key: ${env.TAVILY_SEARCH_API_KEY:=}
+      max_results: 3
+  - provider_id: rag-runtime
+    provider_type: inline::rag-runtime
+    config: {}
+  - provider_id: model-context-protocol
+    provider_type: remote::model-context-protocol
+    config: {}
+  files:
+  - provider_id: meta-reference-files
+    provider_type: inline::localfs
+    config:
+      storage_dir: /opt/app-root/src/.llama/distributions/rh/files
+      metadata_store:
+        backend: sql_default
+        table_name: files_metadata
+  - provider_id: ${env.ENABLE_S3:+s3}
+    provider_type: remote::s3
+    config:
+      bucket_name: ${env.S3_BUCKET_NAME:=}
+      region: ${env.AWS_DEFAULT_REGION:=us-east-1}
+      aws_access_key_id: ${env.AWS_ACCESS_KEY_ID:=}
+      aws_secret_access_key: ${env.AWS_SECRET_ACCESS_KEY:=}
+      endpoint_url: ${env.S3_ENDPOINT_URL:=}
+      auto_create_bucket: ${env.S3_AUTO_CREATE_BUCKET:=false}
+      metadata_store:
+        backend: sql_default
+        table_name: files_metadata
+  batches:
+  - provider_id: reference
+    provider_type: inline::reference
+    config:
+      kvstore:
+        namespace: batches
+        backend: kv_default
+storage:
+  backends:
+    kv_default:
+      type: kv_postgres
+      host: ${env.POSTGRES_HOST:=localhost}
+      port: ${env.POSTGRES_PORT:=5432}
+      db: ${env.POSTGRES_DB:=llamastack}
+      user: ${env.POSTGRES_USER:=llamastack}
+      password: ${env.POSTGRES_PASSWORD:=llamastack}
+      table_name: ${env.POSTGRES_TABLE_NAME:=llamastack_kvstore}
+    sql_default:
+      type: sql_postgres
+      host: ${env.POSTGRES_HOST:=localhost}
+      port: ${env.POSTGRES_PORT:=5432}
+      db: ${env.POSTGRES_DB:=llamastack}
+      user: ${env.POSTGRES_USER:=llamastack}
+      password: ${env.POSTGRES_PASSWORD:=llamastack}
+  stores:
+    metadata:
+      backend: kv_default
+      namespace: registry
+    inference:
+      table_name: inference_store
+      backend: sql_default
+      max_write_queue_size: 10000
+      num_writers: 4
+    conversations:
+      table_name: openai_conversations
+      backend: sql_default
+    prompts:
+      namespace: prompts
+      backend: kv_default
+registered_resources:
+  models:
+  - metadata:
+      embedding_dimension: ${env.EMBEDDING_DIMENSION:=768}
+    model_id: ${env.EMBEDDING_MODEL:=granite-embedding-125m-english}
+    provider_id: ${env.EMBEDDING_PROVIDER:=vllm-embedding}
+    provider_model_id: ${env.EMBEDDING_PROVIDER_MODEL_ID:=ibm-granite/granite-embedding-125m-english}
+    model_type: embedding
+  shields: []
+  vector_dbs: []
+  datasets: []
+  scoring_fns: []
+  benchmarks:
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::owasp_llm_top10}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: owasp_llm_top10
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::avid_security}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: avid_security
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::avid_ethics}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: avid_ethics
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::avid_performance}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: avid_performance
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::quick}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: quick
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::avid}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: trustyai_garak::avid
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::quality}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: trustyai_garak::quality
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::cwe}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: trustyai_garak::cwe
+  - benchmark_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak::intents}
+    dataset_id: garak
+    scoring_functions:
+      - garak_scoring
+    provider_id: trustyai_garak_remote
+    provider_benchmark_id: trustyai_garak::intents
+  tool_groups:
+  - toolgroup_id: builtin::websearch
+    provider_id: tavily-search
+  - toolgroup_id: builtin::rag
+    provider_id: rag-runtime
+vector_stores:
+  annotation_prompt_params:
+    enable_annotations: true
+    annotation_instruction_template: "Cite sources immediately at the end of sentences using <|file-id|> format."
+telemetry:
+  enabled: true
+server:
+  port: 8321
