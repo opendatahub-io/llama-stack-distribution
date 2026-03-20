@@ -33,6 +33,7 @@ RUN uv pip install \
     fire \
     google-genai \
     httpx \
+    litellm \
     matplotlib \
     numpy \
     opentelemetry-exporter-otlp-proto-http \
