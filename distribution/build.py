@@ -40,6 +40,7 @@ source_install_command_pypi_client = """RUN uv pip install --no-cache --no-deps 
 RUN uv pip install --no-cache --no-deps llama-stack-client=={llama_stack_client_version}"""
 
 source_install_command_git_client = """RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@{llama_stack_version}
+RUN uv pip install --no-cache --no-deps 'llama-stack-api@git+https://github.com/llamastack/llama-stack.git@{llama_stack_version}#subdirectory=src/llama_stack_api'
 RUN uv pip install --no-cache --no-deps git+https://github.com/llamastack/llama-stack-client-python.git@{llama_stack_client_version}"""
 
 
