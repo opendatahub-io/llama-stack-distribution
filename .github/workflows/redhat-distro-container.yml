@@ -44,13 +44,13 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
-      VERTEX_AI_LOCATION: us-central1
+      VERTEX_AI_LOCATION: global
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       # Deployment configuration - Llama Stack will support vLLM, Vertex AI, and OpenAI
       # Model names include provider prefixes for consistency
       VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
-      VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
+      VERTEX_AI_INFERENCE_MODEL: vertexai/publishers/google/models/gemini-2.0-flash
       OPENAI_INFERENCE_MODEL: openai/gpt-4o-mini
       EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
@@ -108,6 +108,10 @@ jobs:
           pip install --no-cache -e .
           # now remove the install line from the Containerfile
           cd -
+          # Swap config for upstream-main compatibility before build.py validates it
+          if [ "$LLAMA_STACK_VERSION" = "main" ]; then
+            cp distribution/config.main.yaml distribution/config.yaml
+          fi
           python3 distribution/build.py
           sed -i '/^RUN pip install --no-cache llama-stack==/d' distribution/Containerfile
 
@@ -148,30 +152,28 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Authenticate to Google Cloud (Vertex)
-        if: github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.fork == false && github.secret_source != 'Dependabot'))
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.fork == false && github.secret_source != 'Dependabot')
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
       - name: Setup vllm for image test
-        if: github.event_name != 'workflow_dispatch'
         id: vllm
         uses: ./.github/actions/setup-vllm
 
       - name: Setup PostgreSQL for llama-stack
-        if: github.event_name != 'workflow_dispatch'
         id: postgres
         uses: ./.github/actions/setup-postgres
 
       - name: Start and smoke test LLS distro image
-        if: github.event_name != 'workflow_dispatch'
         id: smoke-test
         shell: bash
+        env:
+          IMAGE_TAG: ${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
         run: ./tests/smoke.sh
 
       - name: Integration tests
-        if: github.event_name != 'workflow_dispatch'
         id: integration-tests
         shell: bash
         run: ./tests/run_integration_tests.sh
@@ -255,7 +257,7 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.WH_SLACK_TEAM_LLS_CORE }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
+          IMAGE_TAG: ${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/actions/notify-slack/notify.sh
@@ -264,8 +266,8 @@ jobs:
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
         run: |
           echo "✅ Custom container image built successfully!"
-          echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}-${{ github.sha }}"
           echo "🔗 Llama Stack commit: ${{ env.LLAMA_STACK_COMMIT_SHA }}"
           echo ""
           echo "You can pull this image using:"
-          echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}-${{ github.sha }}"

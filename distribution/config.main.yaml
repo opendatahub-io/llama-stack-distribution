@@ -136,7 +136,7 @@ providers:
         #   team_id: X-Team-Id
   agents:
   - provider_id: meta-reference
-    provider_type: inline::meta-reference
+    provider_type: inline::builtin
     config:
       persistence:
         agent_state:
