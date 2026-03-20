@@ -33,7 +33,6 @@ RUN uv pip install \
     fire \
     google-genai \
     httpx \
-    litellm \
     matplotlib \
     numpy \
     opentelemetry-exporter-otlp-proto-http \
@@ -66,7 +65,7 @@ RUN uv pip install \
     llama_stack_provider_trustyai_garak==0.3.1
 RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --no-deps sentence-transformers
-RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.6.0.1+rhai0
+RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.6.0.2+rhai0
 RUN uv pip install --no-cache --no-deps llama-stack-client==v0.6.0
 RUN set -o pipefail && opentelemetry-bootstrap -a requirements | uv pip install --requirement -
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
