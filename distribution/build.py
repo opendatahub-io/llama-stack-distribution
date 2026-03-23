@@ -187,9 +187,13 @@ def get_dependencies():
             ]
 
             # Modify pymilvus package to include milvus-lite extra
+            # Pin pymilvus to 2.6.9 to avoid gRPC crash
+            # 2.6.10 crashes Milvus Lite gRPC init with empty dns:/// target
             packages = [
-                package.replace("pymilvus", "pymilvus[milvus-lite]")
+                "'pymilvus[milvus-lite]==2.6.9'"
                 if "pymilvus" in package and "[milvus-lite]" not in package
+                else "'pymilvus==2.6.9'"
+                if "pymilvus" in package
                 else package
                 for package in packages
             ]
