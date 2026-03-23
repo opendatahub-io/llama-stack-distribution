@@ -63,7 +63,8 @@ function run_integration_tests() {
     # Test to skip
     # TODO: re-enable the 2 chat_completion_non_streaming tests once they contain include max tokens (to prevent them from rambling)
     # test_openai_completion_guided_choice needs vllm  >= v0.12.0 https://github.com/llamastack/llama-stack/issues/4984
-    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming or test_openai_chat_completion_with_tool_choice_none or test_openai_chat_completion_with_tools or test_openai_format_preserves_complex_schemas or test_multiple_tools_with_different_schemas or test_tool_with_complex_schema or test_tool_without_schema or test_openai_completion_guided_choice"
+    # test_openai_completion_logprobs{,_streaming}: upstream schema defines logprobs as bool, should be int https://github.com/llamastack/llama-stack/issues/5253
+    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming or test_openai_chat_completion_with_tool_choice_none or test_openai_chat_completion_with_tools or test_openai_format_preserves_complex_schemas or test_multiple_tools_with_different_schemas or test_tool_with_complex_schema or test_tool_without_schema or test_openai_completion_guided_choice or test_openai_completion_logprobs or test_openai_completion_logprobs_streaming"
 
     # Dynamically determine the path to config.yaml from the original script directory
     STACK_CONFIG_PATH="$SCRIPT_DIR/../distribution/config.yaml"
