@@ -365,3 +365,24 @@ telemetry:
   enabled: true
 server:
   port: 8321
+  auth:
+    provider_config:
+      type: ${env.AUTH_ISSUER:+oauth2_token}
+      audience: ${env.AUTH_AUDIENCE:=llama-stack}
+      issuer: ${env.AUTH_ISSUER:=}
+      jwks:
+        uri: ${env.AUTH_JWKS_URI:=}
+        key_recheck_period: ${env.AUTH_JWKS_RECHECK_PERIOD:=3600}
+      verify_tls: ${env.AUTH_VERIFY_TLS:=true}
+    access_policy:
+      - permit:
+          actions: [read]
+        when: resource is unowned
+        description: "All users can read system resources"
+      - permit:
+          actions: [create]
+        description: "Authenticated users can create resources"
+      - permit:
+          actions: [read, update, delete]
+        when: user is owner
+        description: "Owners can manage their own resources"
