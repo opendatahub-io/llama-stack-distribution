@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
-      VERTEX_AI_LOCATION: us-central1
+      VERTEX_AI_LOCATION: global
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       # Deployment configuration - Llama Stack will support vLLM, Vertex AI, and OpenAI
