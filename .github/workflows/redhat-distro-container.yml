@@ -295,10 +295,12 @@ jobs:
 
       - name: Output custom build information
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
+        env:
+          LLS_COMMIT: ${{ env.LLAMA_STACK_COMMIT_SHA }}
         run: |
-          echo "✅ Custom container image built successfully!"
-          echo "📦 Image: ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}-${{ github.sha }}"
-          echo "🔗 Llama Stack commit: ${{ env.LLAMA_STACK_COMMIT_SHA }}"
+          echo "Custom container image built successfully!"
+          echo "Image: $IMAGE_NAME:source-$LLS_COMMIT-$GITHUB_SHA"
+          echo "Llama Stack commit: $LLS_COMMIT"
           echo ""
           echo "You can pull this image using:"
-          echo "docker pull ${{ env.IMAGE_NAME }}:source-${{ env.LLAMA_STACK_COMMIT_SHA }}-${{ github.sha }}"
+          echo "docker pull $IMAGE_NAME:source-$LLS_COMMIT-$GITHUB_SHA"
