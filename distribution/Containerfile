@@ -66,8 +66,7 @@ RUN uv pip install \
 RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@main
-RUN uv pip install --no-cache --no-deps 'llama-stack-api@git+https://github.com/llamastack/llama-stack.git@main#subdirectory=src/llama_stack_api'
-RUN uv pip install --no-cache --no-deps git+https://github.com/llamastack/llama-stack-client-python.git@main
+RUN uv pip install --no-cache --no-deps 'llama-stack-api@git+https://github.com/opendatahub-io/llama-stack.git@main#subdirectory=src/llama_stack_api'
 RUN set -o pipefail && opentelemetry-bootstrap -a requirements | uv pip install --requirement -
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 COPY distribution/config.yaml ${APP_ROOT}/config.yaml
