@@ -32,7 +32,6 @@ function start_and_wait_for_llama_stack_container {
   if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
     docker_args+=(
       --env "VERTEX_AI_PROJECT=$VERTEX_AI_PROJECT"
-      --env "VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION"
       --env "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-credentials"
     )
     # Only mount credentials if the file exists
