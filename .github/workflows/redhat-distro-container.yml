@@ -20,6 +20,9 @@ on:
       - rhoai-v*
 
   # build a custom image from an arbitrary llama-stack commit
+  # NOTE: workflow_dispatch intentionally skips all tests (vllm setup, postgres setup, smoke tests, integration tests)
+  # This allows building images for specific SHAs even when CI is failing on other commits,
+  # useful for testing specific changes without being blocked by unrelated test failures.
   workflow_dispatch:
     inputs:
       llama_stack_commit_sha:
