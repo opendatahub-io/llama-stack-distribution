@@ -196,11 +196,6 @@ jobs:
       - name: Notify Slack (success)
         if: success()
         run: |
-          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then
-            echo "Slack webhook not configured, skipping notification"
-            exit 0
-          fi
-
           PR_URL="${{ steps.create-pr.outputs.pr_url }}"
 
           TEXT=$(printf '%s\n%s\n%s\n%s' \
@@ -209,42 +204,17 @@ jobs:
             "<${WORKFLOW_URL}|View workflow run>" \
             "cc <!subteam^${SLACK_GROUP_LLAMASTACK_RELEASE_MANAGERS}>")
 
-          PAYLOAD=$(jq -n --arg text "$TEXT" '{
-            attachments: [{
-              color: "#46567f",
-              blocks: [{ type: "section", text: { type: "mrkdwn", text: $text } }]
-            }]
-          }')
-
-          curl -sf --connect-timeout 5 --max-time 10 \
-            -X POST -H 'Content-type: application/json' \
-            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" \
-            && echo "Slack notification sent" \
+          .github/actions/notify-slack/notify.sh "$TEXT" \
             || echo "::warning::Failed to send Slack notification"
 
       - name: Notify Slack (failure)
         if: failure()
         run: |
-          if [[ -z "${SLACK_WEBHOOK_URL:-}" ]]; then
-            echo "Slack webhook not configured, skipping notification"
-            exit 0
-          fi
-
           TEXT=$(printf '%s\n%s\n%s\n%s' \
             ":failed: *Failed to create llama-stack version update PR*" \
             "Version: \`${TAG}\`" \
             "<${WORKFLOW_URL}|View workflow run>" \
             "cc <!subteam^${SLACK_GROUP_LLAMASTACK_RELEASE_MANAGERS}>")
 
-          PAYLOAD=$(jq -n --arg text "$TEXT" '{
-            attachments: [{
-              color: "#d00000",
-              blocks: [{ type: "section", text: { type: "mrkdwn", text: $text } }]
-            }]
-          }')
-
-          curl -sf --connect-timeout 5 --max-time 10 \
-            -X POST -H 'Content-type: application/json' \
-            --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" \
-            && echo "Slack failure notification sent" \
+          .github/actions/notify-slack/notify.sh "$TEXT" "#d00000" \
             || echo "::warning::Failed to send Slack notification"
