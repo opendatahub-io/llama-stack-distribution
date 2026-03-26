@@ -1,7 +1,7 @@
 version: 2
 image_name: rh
 apis:
-- agents
+- responses
 - batches
 - datasetio
 - eval
@@ -52,7 +52,6 @@ providers:
     provider_type: remote::vertexai
     config:
       project: ${env.VERTEX_AI_PROJECT:=}
-      location: ${env.VERTEX_AI_LOCATION:=us-central1}
   - provider_id: ${env.OPENAI_API_KEY:+openai}
     provider_type: remote::openai
     config:
@@ -134,9 +133,9 @@ providers:
         #   maas_api_token: Authorization   # X-LlamaStack-Provider-Data key → header
         #   tenant_id: X-Tenant-Id
         #   team_id: X-Team-Id
-  agents:
+  responses:
   - provider_id: meta-reference
-    provider_type: inline::meta-reference
+    provider_type: inline::builtin
     config:
       persistence:
         agent_state:
@@ -220,8 +219,8 @@ providers:
     config:
       api_key: ${env.TAVILY_SEARCH_API_KEY:=}
       max_results: 3
-  - provider_id: rag-runtime
-    provider_type: inline::rag-runtime
+  - provider_id: file-search
+    provider_type: inline::file-search
     config: {}
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
@@ -356,7 +355,7 @@ registered_resources:
   - toolgroup_id: builtin::websearch
     provider_id: tavily-search
   - toolgroup_id: builtin::rag
-    provider_id: rag-runtime
+    provider_id: file-search
 vector_stores:
   annotation_prompt_params:
     enable_annotations: true

@@ -2,35 +2,10 @@
 
 import yaml
 import re
-import subprocess
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).parent.parent
-
-
-def resolve_main_commit_hash(repo_url):
-    """Resolve the commit hash from the main branch of a git repository."""
-    try:
-        # Use git ls-remote to get the commit hash of the main branch
-        result = subprocess.run(
-            ["git", "ls-remote", repo_url, "main"],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10,
-        )
-        # Output format: <commit_hash>\trefs/heads/main
-        lines = result.stdout.strip().split("\n")
-        if lines and lines[0]:
-            commit_hash = lines[0].split()[0]
-            # Return full commit hash
-            return commit_hash
-        return None
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, Exception) as e:
-        # If we can't resolve, return None to fall back to "main"
-        print(f"Warning: Could not resolve commit hash from main: {e}")
-        return None
 
 
 def extract_llama_stack_version():
@@ -53,14 +28,7 @@ def extract_llama_stack_version():
         main_pattern = r"git\+https://github\.com/([^/]+)/llama-stack\.git@main"
         main_match = re.search(main_pattern, content)
         if main_match:
-            # Extract the repository owner/org
             repo_owner = main_match.group(1)
-            repo_url = f"https://github.com/{repo_owner}/llama-stack.git"
-            # Try to resolve the commit hash from main
-            commit_hash = resolve_main_commit_hash(repo_url)
-            if commit_hash:
-                return (commit_hash, repo_owner)
-            # Fall back to "main" if we can't resolve the commit hash
             return ("main", repo_owner)
 
         # Look for llama-stack version in pip install commands

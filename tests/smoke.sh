@@ -32,7 +32,6 @@ function start_and_wait_for_llama_stack_container {
   if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
     docker_args+=(
       --env "VERTEX_AI_PROJECT=$VERTEX_AI_PROJECT"
-      --env "VERTEX_AI_LOCATION=$VERTEX_AI_LOCATION"
       --env "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-credentials"
     )
     # Only mount credentials if the file exists
@@ -46,7 +45,7 @@ function start_and_wait_for_llama_stack_container {
     docker_args+=(--env "OPENAI_API_KEY=$OPENAI_API_KEY")
   fi
 
-  docker_args+=(--name llama-stack "$IMAGE_NAME:$GITHUB_SHA")
+  docker_args+=(--name llama-stack "$IMAGE_NAME:${IMAGE_TAG:-$GITHUB_SHA}")
 
   # Start llama stack
   docker run "${docker_args[@]}"
