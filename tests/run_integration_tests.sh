@@ -78,7 +78,7 @@ function run_integration_tests() {
         exit 1
     fi
 
-    uv venv
+    uv venv --clear
     # shellcheck source=/dev/null
     source .venv/bin/activate
     uv pip install llama-stack-client ollama
