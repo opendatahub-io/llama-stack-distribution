@@ -19,14 +19,14 @@ Smoke tests verify the container image works end-to-end. The script:
 1. **Starts the Llama Stack container** with environment variables for inference models, embedding models, and database configuration, then waits up to 60 seconds for the `/v1/health` endpoint to return `OK`.
 2. **Model listing** - Verifies each configured model appears in the `/v1/models` response.
 3. **OpenAI-compatible inference** - Sends a chat completion request to `/v1/chat/completions` and validates the response.
-4. **PostgreSQL verification** - Checks that expected database tables (`llamastack_kvstore`, `inference_store`) are created and populated with data after inference.
+4. **PostgreSQL verification** - Checks that expected database tables (`llamastack_kvstore`, `inference_store`) exist, then verifies they are populated with data after inference.
 
 Models tested depend on available credentials:
 
 | Model | Environment Variable | Always Tested |
 |-------|---------------------|---------------|
-| vLLM inference model (`Qwen/Qwen3-0.6B`) | `VLLM_INFERENCE_MODEL` | Yes |
-| Embedding model (`ibm-granite/granite-embedding-125m-english`) | `EMBEDDING_MODEL` | Yes (list only) |
+| vLLM inference model (`vllm-inference/Qwen/Qwen3-0.6B`) | `VLLM_INFERENCE_MODEL` | Yes |
+| Embedding model (`sentence-transformers/ibm-granite/granite-embedding-125m-english`) | `EMBEDDING_MODEL` | Yes (list only) |
 | Vertex AI model (`google/gemini-2.0-flash`) | `VERTEX_AI_PROJECT` | Only if set |
 | OpenAI model (`gpt-4o-mini`) | `OPENAI_API_KEY` | Only if set |
 
@@ -38,7 +38,7 @@ export VLLM_INFERENCE_MODEL="vllm-inference/Qwen/Qwen3-0.6B"
 export EMBEDDING_MODEL="sentence-transformers/ibm-granite/granite-embedding-125m-english"
 export VLLM_URL="http://localhost:8000/v1"
 export IMAGE_NAME="quay.io/opendatahub/llama-stack"
-export GITHUB_SHA="<image-tag>"
+export GITHUB_SHA="latest"  # In CI, this is auto-populated with the commit SHA
 
 # Optional (enables additional model tests)
 export VERTEX_AI_PROJECT="<project>"
@@ -54,7 +54,7 @@ Integration tests run the upstream [llama-stack pytest suite](https://github.com
 
 1. **Extracts the llama-stack version** from the generated `distribution/Containerfile` to ensure tests match the bundled version.
 2. **Clones the llama-stack repository** at the matching version tag into `/tmp/llama-stack-integration-tests`.
-3. **Runs `pytest`** against `tests/integration/inference/` with `llama-stack-client` and `ollama` installed, pointing at the distribution's `config.yaml`.
+3. **Runs `pytest`** against `tests/integration/inference/` with `llama-stack-client` and `ollama` installed (ollama is a transitive dependency of the upstream test fixtures), pointing at `distribution/config.yaml`.
 
 Tests are run for each configured inference model (vLLM, and optionally Vertex AI and OpenAI).
 
@@ -74,8 +74,14 @@ Some tests are currently skipped:
 
 #### Running locally
 
+Prerequisites (same as smoke tests):
+
+- A running Llama Stack container (started by `smoke.sh` or manually)
+- A running vLLM endpoint
+- Environment variables: `VLLM_INFERENCE_MODEL`, `EMBEDDING_MODEL`, `VLLM_URL`, and optionally `VERTEX_AI_PROJECT`/`OPENAI_API_KEY`
+- `uv` and `git` available on the system
+
 ```bash
-# Requires a running Llama Stack server and vLLM endpoint
 ./tests/run_integration_tests.sh
 ```
 
@@ -94,7 +100,7 @@ The main CI pipeline that builds, tests, and publishes the container image. It r
 
 Pipeline steps:
 
-1. **Build** the container image for AMD64 (loaded for testing) and ARM64 (build verification only)
+1. **Build** the container image for AMD64 (loaded for testing) and ARM64 (build-only, since GitHub Actions runners do not provide ARM64 with the resources needed to run vLLM)
 2. **Start vLLM** via the `setup-vllm` action (CPU-based `Qwen3-0.6B` model with Hermes tool-call parser)
 3. **Start PostgreSQL** via the `setup-postgres` action (PostgreSQL 17)
 4. **Run smoke tests** (`tests/smoke.sh`)
