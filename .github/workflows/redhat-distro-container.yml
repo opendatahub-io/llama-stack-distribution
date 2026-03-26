@@ -264,7 +264,24 @@ jobs:
           IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: bash .github/actions/notify-slack/notify.sh
+        run: |
+          COMMIT_SHA_SHORT="${COMMIT_SHA:0:7}"
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          if [[ "${NOTIFY_FAILURE:-0}" == "1" ]]; then
+            TEXT=$(printf '%s\n%s\n%s' \
+              ":failed: *Build failed for Llama Stack* - [${TIMESTAMP}]" \
+              "Commit: ${COMMIT_SHA_SHORT}" \
+              "<${WORKFLOW_URL}|View workflow run>")
+            bash .github/actions/notify-slack/notify.sh "$TEXT" "#d00000"
+          else
+            TEXT=$(printf '%s\n%s\n%s\n%s' \
+              ":greenchecked: *New image is available for Llama Stack* - [${TIMESTAMP}]" \
+              "Image: ${IMAGE_NAME}:${IMAGE_TAG}" \
+              "Commit: ${COMMIT_SHA_SHORT}" \
+              "<${WORKFLOW_URL}|View workflow run>")
+            bash .github/actions/notify-slack/notify.sh "$TEXT"
+          fi
 
       - name: Output custom build information
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
