@@ -61,10 +61,14 @@ function run_integration_tests() {
     cd "$WORK_DIR"
 
     # Test to skip
-    # TODO: enable these when we have a stable version of llama-stack client and server versions are aligned
-    RC2_SKIP_TESTS=" or test_openai_completion_logprobs or test_openai_completion_logprobs_streaming or test_openai_chat_completion_structured_output or test_multiple_tools_with_different_schemas or test_mcp_tools_in_inference or test_tool_with_complex_schema or test_tool_without_schema"
     # TODO: re-enable the 2 chat_completion_non_streaming tests once they contain include max tokens (to prevent them from rambling)
-    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming or test_openai_chat_completion_with_tool_choice_none or test_openai_chat_completion_with_tools or test_openai_format_preserves_complex_schemas $RC2_SKIP_TESTS"
+    # test_openai_completion_guided_choice needs vllm  >= v0.12.0 https://github.com/llamastack/llama-stack/issues/4984
+    # test_openai_embeddings_with_dimensions and test_openai_embeddings_with_encoding_format_base64
+    # pass a `dimensions` parameter which requires matryoshka representation support.
+    # granite-embedding-125m-english was not trained with Matryoshka Representation Learning,
+    # so vLLM correctly rejects these requests with a 400 error. sentence-transformers silently
+    # truncated without validation, masking the issue.
+    SKIP_TESTS="test_text_chat_completion_tool_calling_tools_not_in_request or test_text_chat_completion_structured_output or test_text_chat_completion_non_streaming or test_openai_chat_completion_non_streaming or test_openai_chat_completion_with_tool_choice_none or test_openai_chat_completion_with_tools or test_openai_format_preserves_complex_schemas or test_multiple_tools_with_different_schemas or test_tool_with_complex_schema or test_tool_without_schema or test_openai_completion_guided_choice or test_openai_embeddings_with_dimensions or test_openai_embeddings_with_encoding_format_base64"
 
     # Dynamically determine the path to config.yaml from the original script directory
     STACK_CONFIG_PATH="$SCRIPT_DIR/../distribution/config.yaml"
@@ -76,7 +80,7 @@ function run_integration_tests() {
     uv venv
     # shellcheck source=/dev/null
     source .venv/bin/activate
-    uv pip install llama-stack-client
+    uv pip install llama-stack-client ollama
     uv run pytest -s -v tests/integration/inference/ \
         --stack-config=server:"$STACK_CONFIG_PATH" \
         --text-model="$model" \

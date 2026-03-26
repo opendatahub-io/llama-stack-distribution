@@ -120,6 +120,20 @@ providers:
         orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
         ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
         shields: {}
+    - provider_id: ${env.PASSTHROUGH_SAFETY_URL:+passthrough}
+      provider_type: remote::passthrough
+      config:
+        base_url: ${env.PASSTHROUGH_SAFETY_URL:=}
+        api_key: ${env.PASSTHROUGH_SAFETY_API_KEY:=}
+        # forward_headers maps keys from X-LlamaStack-Provider-Data to outbound
+        # HTTP headers sent to the downstream service. use this when callers pass
+        # per-request credentials (e.g. a tenant API token) rather than a shared
+        # static key. omit api_key above if you rely solely on forwarded headers.
+        #
+        # forward_headers:
+        #   maas_api_token: Authorization   # X-LlamaStack-Provider-Data key → header
+        #   tenant_id: X-Tenant-Id
+        #   team_id: X-Team-Id
   agents:
   - provider_id: meta-reference
     provider_type: inline::meta-reference
@@ -162,7 +176,7 @@ providers:
         pipelines_api_token: ${env.KUBEFLOW_PIPELINES_TOKEN:=}
   - provider_id: ${env.ENABLE_KUBEFLOW_GARAK:+trustyai_garak_remote}
     provider_type: remote::trustyai_garak
-    module: llama_stack_provider_trustyai_garak==0.3.0
+    module: llama_stack_provider_trustyai_garak==0.3.1
     config:
       llama_stack_url: ${env.KUBEFLOW_LLAMA_STACK_URL:=}
       kubeflow_config:
@@ -275,7 +289,7 @@ registered_resources:
   models:
   - metadata:
       embedding_dimension: ${env.EMBEDDING_DIMENSION:=768}
-    model_id: ${env.EMBEDDING_MODEL:=granite-embedding-125m-english}
+    model_id: ${env.EMBEDDING_MODEL:=}
     provider_id: ${env.EMBEDDING_PROVIDER:=vllm-embedding}
     provider_model_id: ${env.EMBEDDING_PROVIDER_MODEL_ID:=ibm-granite/granite-embedding-125m-english}
     model_type: embedding
@@ -351,3 +365,24 @@ telemetry:
   enabled: true
 server:
   port: 8321
+  auth:
+    provider_config:
+      type: ${env.AUTH_ISSUER:+oauth2_token}
+      audience: ${env.AUTH_AUDIENCE:=llama-stack}
+      issuer: ${env.AUTH_ISSUER:=}
+      jwks:
+        uri: ${env.AUTH_JWKS_URI:=}
+        key_recheck_period: ${env.AUTH_JWKS_RECHECK_PERIOD:=3600}
+      verify_tls: ${env.AUTH_VERIFY_TLS:=true}
+    access_policy:
+      - permit:
+          actions: [read]
+        when: resource is unowned
+        description: "All users can read system resources"
+      - permit:
+          actions: [create]
+        description: "Authenticated users can create resources"
+      - permit:
+          actions: [read, update, delete]
+        when: user is owner
+        description: "Owners can manage their own resources"

@@ -20,6 +20,9 @@ on:
       - rhoai-v*
 
   # build a custom image from an arbitrary llama-stack commit
+  # NOTE: workflow_dispatch intentionally skips all tests (vllm setup, postgres setup, smoke tests, integration tests)
+  # This allows building images for specific SHAs even when CI is failing on other commits,
+  # useful for testing specific changes without being blocked by unrelated test failures.
   workflow_dispatch:
     inputs:
       llama_stack_commit_sha:
@@ -52,8 +55,9 @@ jobs:
       VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
       VERTEX_AI_INFERENCE_MODEL: vertexai/google/gemini-2.0-flash
       OPENAI_INFERENCE_MODEL: openai/gpt-4o-mini
-      EMBEDDING_MODEL: sentence-transformers/ibm-granite/granite-embedding-125m-english
+      EMBEDDING_MODEL: vllm-embedding/ibm-granite/granite-embedding-125m-english
       VLLM_URL: http://localhost:8000/v1
+      VLLM_EMBEDDING_URL: http://localhost:8001/v1
       LLAMA_STACK_COMMIT_SHA: ${{ github.event.inputs.llama_stack_commit_sha || 'main' }}
     strategy:
       matrix:
@@ -86,7 +90,6 @@ jobs:
         uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
         with:
           python-version: 3.12
-          version: 0.7.6
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
@@ -154,12 +157,23 @@ jobs:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
-      - name: Setup vllm for image test
+      - name: Setup vLLM inference container
         if: github.event_name != 'workflow_dispatch'
-        id: vllm
+        id: vllm-inference
         uses: ./.github/actions/setup-vllm
+        env:
+          VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-granite-embedding-125m
+          VLLM_MODE: inference
 
-      - name: Setup PostgreSQL for llama-stack
+      - name: Setup vLLM embedding container
+        if: github.event_name != 'workflow_dispatch'
+        id: vllm-embedding
+        uses: ./.github/actions/setup-vllm
+        env:
+          VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-granite-embedding-125m
+          VLLM_MODE: embedding
+
+      - name: Setup PostgreSQL container
         if: github.event_name != 'workflow_dispatch'
         id: postgres
         uses: ./.github/actions/setup-postgres
@@ -184,7 +198,8 @@ jobs:
           mkdir -p logs
 
           docker logs llama-stack > logs/llama-stack.log 2>&1 || echo "Failed to get llama-stack logs" > logs/llama-stack.log
-          docker logs vllm > logs/vllm.log 2>&1 || echo "Failed to get vllm logs" > logs/vllm.log
+          docker logs vllm-inference > logs/vllm-inference.log 2>&1 || echo "Failed to get vllm-inference logs" > logs/vllm-inference.log
+          docker logs vllm-embedding > logs/vllm-embedding.log 2>&1 || echo "Failed to get vllm-embedding logs" > logs/vllm-embedding.log
           docker logs postgres > logs/postgres.log 2>&1 || echo "Failed to get postgres logs" > logs/postgres.log
 
           # Gather system information
@@ -216,11 +231,11 @@ jobs:
           path: logs/
           retention-days: 7
 
-      - name: cleanup
+      - name: Cleanup
         if: always()
         shell: bash
         run: |
-          docker rm -f vllm llama-stack postgres
+          docker rm -f vllm-inference vllm-embedding llama-stack postgres
 
       - name: Log in to Quay.io
         id: login
@@ -258,7 +273,24 @@ jobs:
           IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
           COMMIT_SHA: ${{ github.sha }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: bash .github/actions/notify-slack/notify.sh
+        run: |
+          COMMIT_SHA_SHORT="${COMMIT_SHA:0:7}"
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          if [[ "${NOTIFY_FAILURE:-0}" == "1" ]]; then
+            TEXT=$(printf '%s\n%s\n%s' \
+              ":failed: *Build failed for Llama Stack* - [${TIMESTAMP}]" \
+              "Commit: ${COMMIT_SHA_SHORT}" \
+              "<${WORKFLOW_URL}|View workflow run>")
+            bash .github/actions/notify-slack/notify.sh "$TEXT" "#d00000"
+          else
+            TEXT=$(printf '%s\n%s\n%s\n%s' \
+              ":greenchecked: *New image is available for Llama Stack* - [${TIMESTAMP}]" \
+              "Image: ${IMAGE_NAME}:${IMAGE_TAG}" \
+              "Commit: ${COMMIT_SHA_SHORT}" \
+              "<${WORKFLOW_URL}|View workflow run>")
+            bash .github/actions/notify-slack/notify.sh "$TEXT"
+          fi
 
       - name: Output custom build information
         if: contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name)
