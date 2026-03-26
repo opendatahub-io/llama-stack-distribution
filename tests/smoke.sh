@@ -28,6 +28,22 @@ function start_and_wait_for_llama_stack_container {
     --env "POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-llamastack}"
   )
 
+  # Conditionally add vLLM API token (needed for MaaS)
+  if [ -n "${VLLM_API_TOKEN:-}" ]; then
+    docker_args+=(--env "VLLM_API_TOKEN=$VLLM_API_TOKEN")
+  fi
+
+  # Conditionally add MaaS embedding configuration
+  if [ -n "${VLLM_EMBEDDING_API_TOKEN:-}" ]; then
+    docker_args+=(--env "VLLM_EMBEDDING_API_TOKEN=$VLLM_EMBEDDING_API_TOKEN")
+  fi
+  if [ -n "${EMBEDDING_PROVIDER:-}" ]; then
+    docker_args+=(--env "EMBEDDING_PROVIDER=$EMBEDDING_PROVIDER")
+  fi
+  if [ -n "${EMBEDDING_PROVIDER_MODEL_ID:-}" ]; then
+    docker_args+=(--env "EMBEDDING_PROVIDER_MODEL_ID=$EMBEDDING_PROVIDER_MODEL_ID")
+  fi
+
   # Only add Vertex AI configuration if VERTEX_AI_PROJECT is set
   if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
     docker_args+=(
