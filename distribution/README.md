@@ -10,7 +10,6 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 
 | API | Provider | External? | Enabled by default? | How to enable |
 |-----|----------|-----------|---------------------|---------------|
-| agents | inline::builtin | No | ✅ | N/A |
 | batches | inline::reference | No | ✅ | N/A |
 | datasetio | inline::localfs | No | ✅ | N/A |
 | datasetio | remote::huggingface | No | ✅ | N/A |
@@ -28,12 +27,13 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | remote::vllm | No | ❌ | Set the `VLLM_URL` environment variable |
 | inference | remote::vllm | No | ❌ | Set the `VLLM_EMBEDDING_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
+| responses | inline::builtin | No | ✅ | N/A |
 | safety | remote::passthrough | No | ❌ | Set the `PASSTHROUGH_SAFETY_URL` environment variable |
 | safety | remote::trustyai_fms | Yes (version 0.4.0) | ✅ | N/A |
 | scoring | inline::basic | No | ✅ | N/A |
 | scoring | inline::braintrust | No | ✅ | N/A |
 | scoring | inline::llm-as-judge | No | ✅ | N/A |
-| tool_runtime | inline::rag-runtime | No | ✅ | N/A |
+| tool_runtime | inline::file-search | No | ✅ | N/A |
 | tool_runtime | remote::brave-search | No | ✅ | N/A |
 | tool_runtime | remote::model-context-protocol | No | ✅ | N/A |
 | tool_runtime | remote::tavily-search | No | ✅ | N/A |
