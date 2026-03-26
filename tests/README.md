@@ -26,19 +26,20 @@ Models tested depend on available credentials:
 | Model | Environment Variable | Always Tested |
 |-------|---------------------|---------------|
 | vLLM inference model (`vllm-inference/Qwen/Qwen3-0.6B`) | `VLLM_INFERENCE_MODEL` | Yes |
-| Embedding model (`sentence-transformers/ibm-granite/granite-embedding-125m-english`) | `EMBEDDING_MODEL` | Yes (list only) |
-| Vertex AI model (`google/gemini-2.0-flash`) | `VERTEX_AI_PROJECT` | Only if set |
-| OpenAI model (`gpt-4o-mini`) | `OPENAI_API_KEY` | Only if set |
+| Embedding model (`vllm-embedding/ibm-granite/granite-embedding-125m-english`) | `EMBEDDING_MODEL` | Yes (list only) |
+| Vertex AI model (`vertexai/publishers/google/models/gemini-2.0-flash`) | `VERTEX_AI_PROJECT` | Only if set |
+| OpenAI model (`openai/gpt-4o-mini`) | `OPENAI_API_KEY` | Only if set |
 
 #### Running locally
 
 ```bash
 # Required environment variables
 export VLLM_INFERENCE_MODEL="vllm-inference/Qwen/Qwen3-0.6B"
-export EMBEDDING_MODEL="sentence-transformers/ibm-granite/granite-embedding-125m-english"
+export EMBEDDING_MODEL="vllm-embedding/ibm-granite/granite-embedding-125m-english"
 export VLLM_URL="http://localhost:8000/v1"
+export VLLM_EMBEDDING_URL="http://localhost:8001/v1"
 export IMAGE_NAME="quay.io/opendatahub/llama-stack"
-export GITHUB_SHA="latest"  # In CI, this is auto-populated with the commit SHA
+export IMAGE_TAG="latest"  # In CI, this is set to the commit SHA or source-{sha} tag
 
 # Optional (enables additional model tests)
 export VERTEX_AI_PROJECT="<project>"
@@ -71,6 +72,10 @@ Some tests are currently skipped:
 - `test_tool_with_complex_schema`
 - `test_tool_without_schema`
 - `test_openai_completion_guided_choice` (requires vLLM >= v0.12.0)
+- `test_openai_embeddings_with_dimensions` (requires Matryoshka Representation Learning support)
+- `test_openai_embeddings_with_encoding_format_base64` (requires Matryoshka Representation Learning support)
+- `test_openai_completion_logprobs` (upstream schema defines logprobs as bool, should be int)
+- `test_openai_completion_logprobs_streaming` (upstream schema defines logprobs as bool, should be int)
 
 #### Running locally
 
@@ -78,7 +83,7 @@ Prerequisites (same as smoke tests):
 
 - A running Llama Stack container (started by `smoke.sh` or manually)
 - A running vLLM endpoint
-- Environment variables: `VLLM_INFERENCE_MODEL`, `EMBEDDING_MODEL`, `VLLM_URL`, and optionally `VERTEX_AI_PROJECT`/`OPENAI_API_KEY`
+- Environment variables: `VLLM_INFERENCE_MODEL`, `EMBEDDING_MODEL`, `VLLM_URL`, `VLLM_EMBEDDING_URL`, and optionally `VERTEX_AI_PROJECT`/`OPENAI_API_KEY`
 - `uv` and `git` available on the system
 
 ```bash
@@ -93,20 +98,21 @@ Testing is automated via GitHub Actions workflows in `.github/workflows/`.
 
 The main CI pipeline that builds, tests, and publishes the container image. It runs on:
 
-- **Pull requests** to `main` and `rhoai-v*` branches (when `distribution/`, `tests/`, or workflow files change)
+- **Pull requests** to `main`, `rhoai-v*`, and `konflux-poc*` branches (when `distribution/`, `tests/`, or workflow files change)
 - **Pushes** to `main` and `rhoai-v*` branches
-- **Manual dispatch** (`workflow_dispatch`) to build from an arbitrary llama-stack commit
+- **Manual dispatch** (`workflow_dispatch`) to build from an arbitrary llama-stack commit. Intentionally skips all tests to allow building images for specific SHAs even when CI is failing on other commits.
 - **Nightly schedule** (6 AM UTC) to test the `main` branch of llama-stack
 
 Pipeline steps:
 
-1. **Build** the container image for AMD64 (loaded for testing) and ARM64 (build-only, since GitHub Actions runners do not provide ARM64 with the resources needed to run vLLM)
-2. **Start vLLM** via the `setup-vllm` action (CPU-based `Qwen3-0.6B` model with Hermes tool-call parser)
-3. **Start PostgreSQL** via the `setup-postgres` action (PostgreSQL 17)
-4. **Run smoke tests** (`tests/smoke.sh`)
-5. **Run integration tests** (`tests/run_integration_tests.sh`)
-6. **Publish** multi-arch image to `quay.io/opendatahub/llama-stack` (on push to `main` when `distribution/` changed, or on manual dispatch)
-7. **Notify Slack** on failure or successful publish
+1. **Build** the container image for AMD64 (loaded for testing) and ARM64 (build-only verification, since GitHub Actions runners do not provide ARM64 with the resources needed to run vLLM)
+2. **Start vLLM inference** via the `setup-vllm` action using the pre-built `quay.io/opendatahub/vllm-cpu` image (CPU-based `Qwen3-0.6B` model)
+3. **Start vLLM embedding** via the `setup-vllm` action using the same pre-built image (CPU-based `granite-embedding-125m-english` model)
+4. **Start PostgreSQL** via the `setup-postgres` action
+5. **Run smoke tests** (`tests/smoke.sh`)
+6. **Run integration tests** (`tests/run_integration_tests.sh`)
+7. **Publish** multi-arch image to `quay.io/opendatahub/llama-stack` (on push to `main` when `distribution/` changed, or on manual dispatch)
+8. **Notify Slack** on failure or successful publish
 
 Logs from all containers (llama-stack, vLLM, PostgreSQL) and system info are uploaded as artifacts with 7-day retention.
 
@@ -124,6 +130,23 @@ Runs on all pull requests and pushes to `main`. Executes the full pre-commit hoo
 ### Semantic PR Titles (`semantic-pr.yml`)
 
 Validates that pull request titles follow [Conventional Commits](https://www.conventionalcommits.org/) format (e.g., `feat:`, `fix:`, `docs:`).
+
+### Update Llama Stack Version (`update-llama-stack-version.yml`)
+
+Triggered via `repository_dispatch` (type: `update-llama-stack-version`) from the opendatahub-io/llama-stack midstream repo when a new release is tagged. The workflow:
+
+1. **Validates** the tag format (`vX.Y.Z[.W]+rhaiN`) and runs preflight checks (version not already set, branch doesn't exist)
+2. **Updates** `CURRENT_LLAMA_STACK_VERSION` in `distribution/build.py`
+3. **Runs pre-commit** to regenerate distribution artifacts (Containerfile, README)
+4. **Opens a pull request** against `main` with the version bump
+5. **Notifies Slack** with the PR link for review
+
+### vLLM CPU Container (`vllm-cpu-container.yml`)
+
+Builds, tests, and publishes pre-built vLLM CPU container images to `quay.io/opendatahub/vllm-cpu`. These images bundle inference and embedding models so the main CI pipeline doesn't need to download them each run. It runs on:
+
+- **Pull requests** to `main`/`rhoai-v*`/`konflux-poc*` branches and **pushes** to `main`/`rhoai-v*` branches (when `vllm/Containerfile` or actions change)
+- **Manual dispatch** with optional custom inference/embedding model parameters
 
 ### Stale Bot (`stale_bot.yml`)
 
