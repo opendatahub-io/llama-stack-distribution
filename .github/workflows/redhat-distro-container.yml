@@ -157,7 +157,7 @@ jobs:
           project_id: ${{ env.VERTEX_AI_PROJECT }}
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
-      - name: Setup vllm inference
+      - name: Setup vLLM inference container
         if: github.event_name != 'workflow_dispatch'
         id: vllm-inference
         uses: ./.github/actions/setup-vllm
@@ -165,7 +165,7 @@ jobs:
           VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-granite-embedding-125m
           VLLM_MODE: inference
 
-      - name: Setup vllm embedding
+      - name: Setup vLLM embedding container
         if: github.event_name != 'workflow_dispatch'
         id: vllm-embedding
         uses: ./.github/actions/setup-vllm
@@ -173,7 +173,7 @@ jobs:
           VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-granite-embedding-125m
           VLLM_MODE: embedding
 
-      - name: Setup PostgreSQL for llama-stack
+      - name: Setup PostgreSQL container
         if: github.event_name != 'workflow_dispatch'
         id: postgres
         uses: ./.github/actions/setup-postgres
