@@ -289,7 +289,7 @@ registered_resources:
   models:
   - metadata:
       embedding_dimension: ${env.EMBEDDING_DIMENSION:=768}
-    model_id: ${env.EMBEDDING_MODEL:=granite-embedding-125m-english}
+    model_id: ${env.EMBEDDING_MODEL:=}
     provider_id: ${env.EMBEDDING_PROVIDER:=vllm-embedding}
     provider_model_id: ${env.EMBEDDING_PROVIDER_MODEL_ID:=ibm-granite/granite-embedding-125m-english}
     model_type: embedding
