@@ -1,0 +1,158 @@
+name: Test PR in Showroom
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to build and test'
+        required: true
+        type: string
+      catalog_image:
+        description: 'OLM catalog image (optional, uses default if not specified)'
+        required: false
+        type: string
+      operator_image:
+        description: 'Operator image (optional, uses default if not specified)'
+        required: false
+        type: string
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: openshift-cluster-1
+      cancel-in-progress: false
+    permissions:
+      contents: read
+
+    steps:
+      - name: Get PR information
+        id: pr-info
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            if (!Number.isInteger(prNumber) || prNumber < 1) {
+              core.setFailed('Invalid PR number');
+              return;
+            }
+
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            core.setOutput('sha', pr.data.head.sha);
+            core.setOutput('ref', pr.data.head.ref);
+            core.setOutput('repo', pr.data.head.repo.full_name);
+
+            console.log(`PR #${prNumber}:`);
+            console.log(`  SHA: ${pr.data.head.sha}`);
+            console.log(`  Ref: ${pr.data.head.ref}`);
+            console.log(`  Repo: ${pr.data.head.repo.full_name}`);
+
+      - name: Checkout PR code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          repository: ${{ steps.pr-info.outputs.repo }}
+          ref: ${{ steps.pr-info.outputs.sha }}
+          path: llama-stack-distribution
+          persist-credentials: false
+
+      - name: Build image from PR
+        id: build
+        working-directory: llama-stack-distribution
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_SHA: ${{ steps.pr-info.outputs.sha }}
+        run: |
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "Invalid PR_NUMBER"
+            exit 1
+          fi
+          TAG="pr-${PR_NUMBER}-${PR_SHA}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Building image: llama-stack-test:$TAG"
+
+          python3 distribution/build.py
+          podman build -f distribution/Containerfile -t "llama-stack-test:$TAG" .
+
+      - name: Setup CI environment
+        id: setup
+        uses: derekhiggins/llama-stack-showroom@036ca9802bbe245d59bbe4a3d703f37c82cf692f  # main as of 2026-03-24
+        with:
+          catalog_image: ${{ inputs.catalog_image }}
+          llama_stack_image: "image-registry.openshift-image-registry.svc:5000/redhat-ods-operator/llama-stack-test:${{ steps.build.outputs.tag }}"
+          operator_image: ${{ inputs.operator_image }}
+          oc_server: ${{ secrets.OC_SERVER }}
+          oc_token: ${{ secrets.OC_TOKEN }}
+          env: |
+            SHOWROOM_PULL_SECRET=${{ secrets.SHOWROOM_PULL_SECRET }}
+            SHOWROOM_VLLM_URL=https://llama-3-2-3b-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
+            SHOWROOM_VLLM_API_TOKEN=${{ secrets.SHOWROOM_VLLM_API_TOKEN }}
+            SHOWROOM_VLLM_EMBEDDING_URL=https://nomic-embed-text-v1-5-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
+            SHOWROOM_VLLM_EMBEDDING_API_TOKEN=${{ secrets.SHOWROOM_VLLM_EMBEDDING_API_TOKEN }}
+
+      - name: Push image to OpenShift registry
+        id: push
+        run: |
+          # Push image to registry
+          "${{ steps.setup.outputs.scripts_dir }}/push-image-to-registry.sh" \
+            llama-stack-test:${{ steps.build.outputs.tag }} \
+            redhat-ods-operator \
+            llama-stack-test:${{ steps.build.outputs.tag }}
+
+          # Construct pull URL for cluster-internal access
+          PULL_IMAGE="image-registry.openshift-image-registry.svc:5000/redhat-ods-operator/llama-stack-test:${{ steps.build.outputs.tag }}"
+
+          echo "pull_image=${PULL_IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Run setup.sh
+        run: |
+          "${{ steps.setup.outputs.scripts_dir }}/setup.sh"
+
+      - name: Run provision.sh
+        run: |
+          "${{ steps.setup.outputs.scripts_dir }}/provision.sh"
+
+      - name: Run tests
+        run: |
+          "${{ steps.setup.outputs.scripts_dir }}/test.sh"
+
+      - name: Run unprovision.sh
+        if: always()
+        run: |
+          "${{ steps.setup.outputs.scripts_dir }}/unprovision.sh"
+
+      - name: Run cleanup.sh
+        if: always()
+        run: |
+          "${{ steps.setup.outputs.scripts_dir }}/cleanup.sh"
+
+      - name: Output summary
+        if: always()
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_SHA: ${{ steps.pr-info.outputs.sha }}
+          IMAGE_TAG: ${{ steps.build.outputs.tag }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "# Test PR in Showroom - Summary"
+            echo ""
+            echo "## Build Information"
+            echo "- **PR Number**: #${PR_NUMBER}"
+            echo "- **Commit SHA**: ${PR_SHA}"
+            echo "- **Image Tag**: \`${IMAGE_TAG}\`"
+            echo ""
+            echo "## Test Results"
+            if [ "$JOB_STATUS" = "success" ]; then
+              echo "✅ All tests passed successfully!"
+            else
+              echo "❌ Tests failed. Check the logs above for details."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
