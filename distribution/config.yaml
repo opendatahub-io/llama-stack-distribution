@@ -58,13 +58,13 @@ providers:
       api_key: ${env.OPENAI_API_KEY:=}
       base_url: ${env.OPENAI_BASE_URL:=https://api.openai.com/v1}
   vector_io:
-  - provider_id: milvus
-    provider_type: inline::milvus
+  - provider_id: sqlite-vec
+    provider_type: inline::sqlite-vec
     config:
-      db_path: /opt/app-root/src/.llama/distributions/rh/milvus.db
+      db_path: /opt/app-root/src/.llama/distributions/rh/sqlite_vec.db
       persistence:
         backend: kv_default
-        namespace: vector_io::milvus
+        namespace: vector_io::sqlite_vec
   - provider_id: ${env.ENABLE_FAISS:+faiss}
     provider_type: inline::faiss
     config:
