@@ -63,6 +63,9 @@ jobs:
           path: llama-stack-distribution
           persist-credentials: false
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78  # v7.6.0
+
       - name: Build image from PR
         id: build
         working-directory: llama-stack-distribution
@@ -78,6 +81,8 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Building image: llama-stack-test:$TAG"
 
+          uv venv
+          source .venv/bin/activate
           python3 distribution/build.py
           podman build -f distribution/Containerfile -t "llama-stack-test:$TAG" .
 
@@ -96,6 +101,7 @@ jobs:
             SHOWROOM_VLLM_API_TOKEN=${{ secrets.SHOWROOM_VLLM_API_TOKEN }}
             SHOWROOM_VLLM_EMBEDDING_URL=https://nomic-embed-text-v1-5-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1
             SHOWROOM_VLLM_EMBEDDING_API_TOKEN=${{ secrets.SHOWROOM_VLLM_EMBEDDING_API_TOKEN }}
+            SHOWROOM_OPENAI_API_KEY=${{ secrets.SHOWROOM_OPENAI_API_KEY }}
 
       - name: Push image to OpenShift registry
         id: push
@@ -121,7 +127,24 @@ jobs:
 
       - name: Run tests
         run: |
-          "${{ steps.setup.outputs.scripts_dir }}/test.sh"
+          cd "${{ steps.setup.outputs.scripts_dir }}"
+          ./test.sh
+
+      - name: Debug - Capture OpenShift state
+        if: always()
+        run: |
+          echo -e "\n=== Recent Events ==="
+          oc get events -n redhat-ods-applications --sort-by='.lastTimestamp' \
+            -o custom-columns=TIME:.lastTimestamp,TYPE:.type,REASON:.reason,OBJECT:.involvedObject.name,MESSAGE:.message
+
+          echo -e "\n=== All Resources ==="
+          oc get all -n redhat-ods-applications
+
+          echo -e "\n=== Pod Logs (first 5 lines) ==="
+          oc logs -n redhat-ods-applications -l app=llama-stack --tail=-1 | head -5 || echo "No logs available"
+
+          echo -e "\n=== Pod Logs (last 150 lines) ==="
+          oc logs -n redhat-ods-applications --tail=150 -l app=llama-stack || echo "No logs available"
 
       - name: Run unprovision.sh
         if: always()
