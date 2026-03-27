@@ -12,7 +12,7 @@ on:
     paths:
       - 'vllm/Containerfile'
       - '.github/actions/**'
-      - '.github/actions/workflows/vllm-cpu-container.yml'
+      - '.github/workflows/vllm-cpu-container.yml'
   push:
     branches:
       - main
@@ -20,7 +20,7 @@ on:
     paths:
       - 'vllm/Containerfile'
       - '.github/actions/**'
-      - '.github/actions/workflows/vllm-cpu-container.yml'
+      - '.github/workflows/vllm-cpu-container.yml'
   workflow_dispatch:
     inputs:
       inference_model:
@@ -35,14 +35,19 @@ env:
   IMAGE_NAME: quay.io/opendatahub/vllm-cpu # tags for the image will be added dynamically
 
 jobs:
-  build-test-push:
-    runs-on: ubuntu-latest
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     env:
       INFERENCE_MODEL: ${{ github.event.inputs.inference_model || 'Qwen/Qwen3-0.6B' }}
       EMBEDDING_MODEL: ${{ github.event.inputs.embedding_model || 'ibm-granite/granite-embedding-125m-english' }}
-    strategy:
-      matrix:
-        platform: [linux/amd64] # TODO: enable other arch once all pip packages are available.
     permissions:
       contents: read
 
@@ -56,14 +61,6 @@ jobs:
           EMBEDDING_TEMP="${EMBEDDING_MODEL#*/}"
           echo "INFERENCE_TAG=${INFERENCE_TEMP%-*}" >> "$GITHUB_ENV"
           echo "EMBEDDING_TAG=${EMBEDDING_TEMP%-*}" >> "$GITHUB_ENV"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
-        with:
-          python-version: 3.12
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -80,10 +77,12 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: false
           tags: ${{ env.IMAGE_NAME }}:${{ env.INFERENCE_TAG }}-${{ env.EMBEDDING_TAG }}
-          load: true  # needed to load for smoke test
+          load: true
           build-args: |
             INFERENCE_MODEL=${{ env.INFERENCE_MODEL }}
             EMBEDDING_MODEL=${{ env.EMBEDDING_MODEL }}
+          cache-from: type=gha,scope=buildkit-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=buildkit-${{ matrix.platform }}
 
       - name: Setup vllm for inference test
         if: github.event_name != 'workflow_dispatch'
@@ -128,7 +127,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: ci-logs-${{ github.sha }}
+          name: ci-logs-${{ github.sha }}-${{ strategy.job-index }}
           path: logs/
           retention-days: 7
 
@@ -138,8 +137,8 @@ jobs:
         run: |
           docker rm -f vllm-inference vllm-embedding >/dev/null 2>&1 || true
 
+      # Push image by digest for the publish job to assemble into a multi-arch manifest
       - name: Log in to Quay.io
-        id: login
         if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
@@ -147,16 +146,74 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Publish image to Quay.io
-        id: publish
+      - name: Push image by digest
         if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        id: push-digest
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: vllm/Containerfile
           platforms: ${{ matrix.platform }}
-          push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ env.INFERENCE_TAG }}-${{ env.EMBEDDING_TAG }}
           build-args: |
             INFERENCE_MODEL=${{ env.INFERENCE_MODEL }}
             EMBEDDING_MODEL=${{ env.EMBEDDING_MODEL }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=buildkit-${{ matrix.platform }}
+
+      - name: Export digest
+        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.push-digest.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: digests-${{ strategy.job-index }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+
+  publish:
+    needs: build-test
+    if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
+    runs-on: ubuntu-latest
+    env:
+      INFERENCE_MODEL: ${{ github.event.inputs.inference_model || 'Qwen/Qwen3-0.6B' }}
+      EMBEDDING_MODEL: ${{ github.event.inputs.embedding_model || 'ibm-granite/granite-embedding-125m-english' }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Set image tag components
+        run: |
+          INFERENCE_TEMP="${INFERENCE_MODEL#*/}"
+          EMBEDDING_TEMP="${EMBEDDING_MODEL#*/}"
+          echo "INFERENCE_TAG=${INFERENCE_TEMP%-*}" >> "$GITHUB_ENV"
+          echo "EMBEDDING_TAG=${EMBEDDING_TEMP%-*}" >> "$GITHUB_ENV"
+
+      - name: Download digests
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Create multi-arch manifest and push
+        working-directory: /tmp/digests
+        run: |
+          TAG="${{ env.IMAGE_NAME }}:${{ env.INFERENCE_TAG }}-${{ env.EMBEDDING_TAG }}"
+          # shellcheck disable=SC2046
+          docker buildx imagetools create -t "$TAG" \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
