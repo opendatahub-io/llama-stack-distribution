@@ -1,6 +1,6 @@
 # vLLM CPU Container Images
 
-This directory contains a Containerfile based on the official [vllm/vllm-openai-cpu](https://hub.docker.com/r/vllm/vllm-openai-cpu) image (v0.17.1) with pre-downloaded HuggingFace models baked in at build time.
+This directory contains a Containerfile based on the official [vllm/vllm-openai-cpu](https://hub.docker.com/r/vllm/vllm-openai-cpu) image (v0.18.0) with pre-downloaded HuggingFace models baked in at build time.
 
 ## Build Arguments
 
@@ -15,7 +15,7 @@ This directory contains a Containerfile based on the official [vllm/vllm-openai-
 docker build . \
     --build-arg INFERENCE_MODEL="Qwen/Qwen3-0.6B" \
     --build-arg EMBEDDING_MODEL="ibm-granite/granite-embedding-125m-english" \
-    --tag vllm-cpu:Qwen3-granite-embedding-125m \
+    --tag vllm-cpu:Qwen3-0.6B-granite-embedding-125m-english \
     --file vllm/Containerfile
 ```
 
@@ -29,7 +29,7 @@ docker build . \
     --build-arg INFERENCE_MODEL="Qwen/Qwen3-0.6B" \
     --build-arg EMBEDDING_MODEL="ibm-granite/granite-embedding-125m-english" \
     --secret id=hf_token,env=HF_TOKEN \
-    --tag vllm-cpu:Qwen3-granite-embedding-125m \
+    --tag vllm-cpu:Qwen3-0.6B-granite-embedding-125m-english \
     --file vllm/Containerfile
 ```
 
@@ -47,7 +47,7 @@ docker run -d \
     --name vllm-inference \
     --privileged=true \
     --net=host \
-    vllm-cpu:Qwen3-granite-embedding-125m \
+    vllm-cpu:Qwen3-0.6B-granite-embedding-125m-english \
     --host 0.0.0.0 \
     --port 8000 \
     --enable-auto-tool-choice \
@@ -64,7 +64,7 @@ docker run -d \
     --name vllm-embedding \
     --privileged=true \
     --net=host \
-    vllm-cpu:Qwen3-granite-embedding-125m \
+    vllm-cpu:Qwen3-0.6B-granite-embedding-125m-english \
     --host 0.0.0.0 \
     --port 8001 \
     --model /root/.cache/ibm-granite/granite-embedding-125m-english \

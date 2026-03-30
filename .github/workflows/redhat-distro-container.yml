@@ -161,7 +161,7 @@ jobs:
         id: vllm-inference
         uses: ./.github/actions/setup-vllm
         env:
-          VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-granite-embedding-125m
+          VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-0.6B-granite-embedding-125m-english
           VLLM_MODE: inference
 
       - name: Setup vLLM embedding container
@@ -169,7 +169,7 @@ jobs:
         id: vllm-embedding
         uses: ./.github/actions/setup-vllm
         env:
-          VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-granite-embedding-125m
+          VLLM_IMAGE: quay.io/opendatahub/vllm-cpu:Qwen3-0.6B-granite-embedding-125m-english
           VLLM_MODE: embedding
 
       - name: Setup PostgreSQL container
