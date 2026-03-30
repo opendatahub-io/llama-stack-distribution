@@ -1,107 +1,105 @@
 pull_request_rules:
-- name: auto-merge github-deps
-  description: >
-    Automatic merge of dependency update PRs (single approval required)
-  conditions:
-    - title~=chore\(github-deps\)
-    - "#approved-reviews-by>=1"
-    - "#changes-requested-reviews-by=0"
-    - or:
-      - base=main
-      - base~=^rhoai-v
-    - label!=do-not-merge
-    - label!=needs-rebase
-    - check-success=pre-commit
-    - check-success=title-check
-  actions:
-    merge:
-      method: merge
-      commit_message_template: |
-        {{ title }} (#{{ number }})
+  - name: auto-merge github-deps
+    description: >
+      Automatic merge of dependency update PRs (single approval required)
+    conditions:
+      - title~=chore\(github-deps\)
+      - "#approved-reviews-by>=1"
+      - "#changes-requested-reviews-by=0"
+      - or:
+          - base=main
+          - base~=^rhoai-v
+      - label!=do-not-merge
+      - label!=needs-rebase
+      - check-success=pre-commit
+      - check-success=title-check
+    actions:
+      merge:
+        method: merge
+        commit_message_template: |
+          {{ title }} (#{{ number }})
 
-        {{ body }}
+          {{ body }}
 
-        {% for user in approved_reviews_by %}
-        Approved-by: {{ user }}
-        {% endfor %}
-    delete_head_branch:
+          {% for user in approved_reviews_by %}
+          Approved-by: {{ user }}
+          {% endfor %}
 
-- name: auto-merge
-  description: >
-    Automatic merge of PRs to main
-  conditions:
-    - -title~=chore\(github-deps\)
-    - "#approved-reviews-by>=2"
-    - "#changes-requested-reviews-by=0"
-    - or:
-      - base=main
-      - base~=^rhoai-v
-    - label!=do-not-merge
-    - label!=needs-rebase
-    - check-success=pre-commit
-    - check-success=title-check
+  - name: auto-merge
+    description: >
+      Automatic merge of PRs to main
+    conditions:
+      - -title~=chore\(github-deps\)
+      - "#approved-reviews-by>=2"
+      - "#changes-requested-reviews-by=0"
+      - or:
+          - base=main
+          - base~=^rhoai-v
+      - label!=do-not-merge
+      - label!=needs-rebase
+      - check-success=pre-commit
+      - check-success=title-check
 
     # Check redhat-distro-container job only when relevant paths are changed
-    - or:
-      - and:
-        - check-success~=build-test
-        - or:
-          - files~=^\.github/actions/setup-vllm/action\.yml$
-          - files~=^\.github/workflows/redhat-distro-container\.yml$
-          - files~=^distribution/
-          - files~=^tests/
-      - and:
-        - -files~=^\.github/actions/setup-vllm/action\.yml$
-        - -files~=^\.github/workflows/redhat-distro-container\.yml$
-        - -files~=^distribution/
-        - -files~=^tests/
+      - or:
+          - and:
+              - check-success~=build-test
+              - or:
+                  - files~=^\.github/actions/setup-vllm/action\.yml$
+                  - files~=^\.github/workflows/redhat-distro-container\.yml$
+                  - files~=^distribution/
+                  - files~=^tests/
+          - and:
+              - -files~=^\.github/actions/setup-vllm/action\.yml$
+              - -files~=^\.github/workflows/redhat-distro-container\.yml$
+              - -files~=^distribution/
+              - -files~=^tests/
 
-  actions:
-    merge:
-      method: merge
-      commit_message_template: |
-        {{ title }} (#{{ number }})
+    actions:
+      merge:
+        method: merge
+        commit_message_template: |
+          {{ title }} (#{{ number }})
 
-        {{ body }}
+          {{ body }}
 
-        {% for user in approved_reviews_by %}
-        Approved-by: {{ user }}
-        {% endfor %}
-    delete_head_branch:
+          {% for user in approved_reviews_by %}
+          Approved-by: {{ user }}
+          {% endfor %}
 
-- name: ping author on conflicts and add 'needs-rebase' label
-  conditions:
-    - conflict
-    - -closed
-  actions:
-    label:
-      add:
-        - needs-rebase
-    comment:
-      message: >
-       This pull request has merge conflicts that must be resolved before it
-       can be merged. @{{author}} please rebase it.
-       https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork
+  - name: ping author on conflicts and add 'needs-rebase' label
+    conditions:
+      - conflict
+      - -closed
+    actions:
+      label:
+        add:
+          - needs-rebase
+      comment:
+        message: >
+          This pull request has merge conflicts that must be resolved before it
+          can be merged. @{{author}} please rebase it.
+          https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork
 
-- name: remove 'needs-rebase' label when conflict is resolved
-  conditions:
-    - -conflict
-    - -closed
-  actions:
-    label:
-      remove:
-        - needs-rebase
+  - name: remove 'needs-rebase' label when conflict is resolved
+    conditions:
+      - -conflict
+      - -closed
+    actions:
+      label:
+        remove:
+          - needs-rebase
 
-- name: remind about Konflux Dockerfile when Containerfile changes
-  conditions:
-    - files~=^distribution/Containerfile.in$
-    - -closed
-  actions:
-    comment:
-      message: >
-        ⚠️ **Heads up!** This PR modifies `distribution/Containerfile.in`.
+  - name: remind about Konflux Dockerfile when Containerfile changes
+    conditions:
+      - files~=^distribution/Containerfile.in$
+      - -closed
+    actions:
+      comment:
+        message: >
+          ⚠️ **Heads up!** This PR modifies `distribution/Containerfile.in`.
 
-        A corresponding change may be needed in the Konflux Dockerfile:
-        https://github.com/red-hat-data-services/llama-stack-distribution/blob/main/Dockerfile.konflux
+          A corresponding change may be needed in the Konflux Dockerfile:
+          https://github.com/red-hat-data-services/llama-stack-distribution/blob/main/Dockerfile.konflux
 
-        Please verify if the changes need to be synchronized.
+          Please verify if the changes need to be synchronized.
