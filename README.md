@@ -71,10 +71,7 @@ podman run \
 
 ## ARM64 Support
 
-The distribution image supports both amd64 and arm64 architectures. ARM64 inference testing in CI uses remote vLLM MaaS (Model-as-a-Service) endpoints via the `remote::vllm` provider, making the same endpoint usable from both amd64 and arm64 runners.
-
-> [!NOTE]
-> Fork PRs only verify that the ARM64 image builds (no runtime tests, since MaaS secrets are unavailable). Full ARM64 testing runs on origin PRs and post-merge before publishing.
+The distribution image supports both amd64 and arm64 architectures. CI runs the full test suite (build, smoke tests, and integration tests) on both architectures using multi-arch vLLM CPU images. When MaaS (Model-as-a-Service) endpoints are configured, they override the local vLLM containers on both architectures.
 
 ## Slack Build Notifications
 
