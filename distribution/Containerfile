@@ -5,6 +5,7 @@ WORKDIR /opt/app-root
 RUN pip install uv
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
 RUN uv pip install opentelemetry-distro
+RUN uv pip install structlog # core llama-stack dep not covered by provider deps
 RUN uv pip install --upgrade \
     'kfp-kubernetes==2.14.6' \
     'pyarrow>=21.0.0' \
