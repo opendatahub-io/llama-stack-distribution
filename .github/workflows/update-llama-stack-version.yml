@@ -34,9 +34,9 @@ jobs:
             exit 1
           fi
 
-          # Validate tag format: vMAJOR.MINOR.PATCH[.BUILD]+rhaiN (e.g., v0.5.0+rhai0, v0.5.0.1+rhai0)
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?\+rhai[0-9]+$ ]]; then
-            echo "::error::Tag '${TAG}' does not match expected format vX.Y.Z+rhaiN"
+          # Validate tag format: vMAJOR.MINOR.PATCH[.BUILD]+rhaiv.N (e.g., v0.5.0+rhaiv.0, v0.5.0.1+rhaiv.0)
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?\+rhaiv\.[0-9]+$ ]]; then
+            echo "::error::Tag '${TAG}' does not match expected format vX.Y.Z+rhaiv.N"
             exit 1
           fi
           echo "Validated tag: $TAG"
