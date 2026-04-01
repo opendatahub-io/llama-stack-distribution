@@ -44,16 +44,14 @@ function start_and_wait_for_llama_stack_container {
     docker_args+=(--env "EMBEDDING_PROVIDER_MODEL_ID=$EMBEDDING_PROVIDER_MODEL_ID")
   fi
 
-  # Only add Vertex AI configuration if VERTEX_AI_PROJECT is set
-  if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
+  # Only add Vertex AI configuration if VERTEX_AI_PROJECT is set AND credentials file exists
+  # (GCP auth step only runs on amd64, so credentials won't exist on arm64)
+  if [ -n "${VERTEX_AI_PROJECT:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
     docker_args+=(
       --env "VERTEX_AI_PROJECT=$VERTEX_AI_PROJECT"
       --env "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/gcp-credentials"
+      --volume "$GOOGLE_APPLICATION_CREDENTIALS:/run/secrets/gcp-credentials:ro"
     )
-    # Only mount credentials if the file exists
-    if [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-      docker_args+=(--volume "$GOOGLE_APPLICATION_CREDENTIALS:/run/secrets/gcp-credentials:ro")
-    fi
   fi
 
   # Only add OpenAI configuration if OPENAI_API_KEY is set
