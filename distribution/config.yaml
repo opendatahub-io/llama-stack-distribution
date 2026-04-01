@@ -58,8 +58,9 @@ providers:
       api_key: ${env.OPENAI_API_KEY:=}
       base_url: ${env.OPENAI_BASE_URL:=https://api.openai.com/v1}
   vector_io:
-  - provider_id: milvus
+  - provider_id: ${env.ENABLE_INLINE_MILVUS:+milvus}
     provider_type: inline::milvus
+    notes: Incompatible with multi-worker deployments
     config:
       db_path: /opt/app-root/src/.llama/distributions/rh/milvus.db
       persistence:

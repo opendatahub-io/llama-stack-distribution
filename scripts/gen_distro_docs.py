@@ -136,6 +136,10 @@ def gen_distro_table(providers_data):
                         enabled_by_default = "✅"
                         how_to_enable = "N/A"
 
+                    notes = provider.get("notes", "")
+                    if notes:
+                        how_to_enable += f". {notes}"
+
                     # Determine external status using config.yaml data
                     external_status = external_providers.get(provider_type, "No")
 
