@@ -61,8 +61,7 @@ jobs:
       VERTEX_AI_PROJECT: ${{ secrets.VERTEX_AI_PROJECT }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      # Deployment configuration - Llama Stack will support vLLM, Vertex AI, and OpenAI
-      # Model names include provider prefixes for consistency
+      # Model names - set defaults, overridden by MaaS configuration step
       VLLM_INFERENCE_MODEL: vllm-inference/Qwen/Qwen3-0.6B
       VERTEX_AI_INFERENCE_MODEL: vertexai/publishers/google/models/gemini-2.0-flash
       OPENAI_INFERENCE_MODEL: openai/gpt-4o-mini
@@ -143,6 +142,30 @@ jobs:
             echo "OPENAI_API_KEY="
           } >> "$GITHUB_ENV"
 
+      - name: Configure MaaS vLLM endpoints
+        env:
+          _MAAS_VLLM_URL: ${{ secrets.MAAS_VLLM_URL }}
+          _MAAS_VLLM_API_TOKEN: ${{ secrets.MAAS_VLLM_API_TOKEN }}
+          _MAAS_EMBEDDING_URL: ${{ secrets.MAAS_EMBEDDING_URL }}
+          _MAAS_EMBEDDING_API_TOKEN: ${{ secrets.MAAS_EMBEDDING_API_TOKEN }}
+        run: |
+          if [ -z "$_MAAS_VLLM_URL" ]; then
+            echo "MaaS vLLM URL not configured, skipping"
+            exit 0
+          fi
+          echo "Configuring MaaS vLLM endpoints for testing"
+          {
+            echo "VLLM_URL=$_MAAS_VLLM_URL"
+            echo "VLLM_API_TOKEN=$_MAAS_VLLM_API_TOKEN"
+            echo "VLLM_INFERENCE_MODEL=vllm-inference/llama-3-2-3b"
+            echo "VLLM_EMBEDDING_URL=$_MAAS_EMBEDDING_URL"
+            echo "VLLM_EMBEDDING_API_TOKEN=$_MAAS_EMBEDDING_API_TOKEN"
+            echo "EMBEDDING_MODEL=vllm-embedding/nomic-embed-text-v1-5"
+            echo "EMBEDDING_PROVIDER=vllm-embedding"
+            echo "EMBEDDING_PROVIDER_MODEL_ID=nomic-embed-text-v1-5"
+            echo "USING_MAAS=true"
+          } >> "$GITHUB_ENV"
+
       - name: Authenticate to Google Cloud (Vertex)
         if: matrix.arch == 'amd64' && github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.fork == false && github.secret_source != 'Dependabot'))
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
@@ -151,7 +174,7 @@ jobs:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
 
       - name: Setup vLLM inference container
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && env.USING_MAAS != 'true'
         id: vllm-inference
         uses: ./.github/actions/setup-vllm
         env:
@@ -159,7 +182,7 @@ jobs:
           VLLM_MODE: inference
 
       - name: Setup vLLM embedding container
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && env.USING_MAAS != 'true'
         id: vllm-embedding
         uses: ./.github/actions/setup-vllm
         env:
@@ -178,7 +201,7 @@ jobs:
         run: ./tests/smoke.sh
 
       - name: Integration tests
-        if: matrix.arch == 'amd64' && github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch' && (matrix.arch == 'amd64' || env.USING_MAAS == 'true')
         id: integration-tests
         shell: bash
         run: ./tests/run_integration_tests.sh
@@ -228,7 +251,9 @@ jobs:
         if: always()
         shell: bash
         run: |
-          docker rm -f vllm-inference vllm-embedding llama-stack postgres
+          for c in vllm-inference vllm-embedding llama-stack postgres; do
+            docker rm -f "$c" 2>/dev/null || true
+          done
 
       # Set status so the single Notify step knows whether to send success or failure message.
       - name: Set Slack notify status

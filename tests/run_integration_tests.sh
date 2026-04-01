@@ -107,12 +107,13 @@ function main() {
     # Build list of models to test based on available configuration
     models_to_test=("$VLLM_INFERENCE_MODEL")
 
-    # Only include Vertex AI models if VERTEX_AI_PROJECT is set
-    if [ -n "${VERTEX_AI_PROJECT:-}" ]; then
-        echo "VERTEX_AI_PROJECT is set, including Vertex AI models in tests"
+    # Only include Vertex AI models if credentials are available
+    # (GCP auth step only runs on amd64, so credentials won't exist on arm64)
+    if [ -n "${VERTEX_AI_PROJECT:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+        echo "Vertex AI credentials available, including Vertex AI models in tests"
         models_to_test+=("$VERTEX_AI_INFERENCE_MODEL")
     else
-        echo "VERTEX_AI_PROJECT is not set, skipping Vertex AI models"
+        echo "Vertex AI credentials not available, skipping Vertex AI models"
     fi
 
     # Only include OpenAI models if OPENAI_API_KEY is set

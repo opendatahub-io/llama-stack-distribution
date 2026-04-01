@@ -69,6 +69,10 @@ podman run \
 > [!IMPORTANT]
 > The distribution image ships with various dependencies already pre-installed. There is *no* guarantee that your custom run YAML will necessarily work with the included dependencies.
 
+## ARM64 Support
+
+The distribution image supports both amd64 and arm64 architectures. CI runs the full test suite (build, smoke tests, and integration tests) on both architectures using multi-arch vLLM CPU images. When MaaS (Model-as-a-Service) endpoints are configured, they override the local vLLM containers on both architectures.
+
 ## Slack Build Notifications
 
 Slack notifications are sent on successful image push (`push`/`workflow_dispatch`) and on build failures.
