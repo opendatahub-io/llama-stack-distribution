@@ -70,6 +70,10 @@ RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/ll
 RUN uv pip install --no-cache --no-deps 'llama-stack-api@git+https://github.com/opendatahub-io/llama-stack.git@main#subdirectory=src/llama_stack_api'
 RUN set -o pipefail && opentelemetry-bootstrap -a requirements | uv pip install --requirement -
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
+# Pre-cache tiktoken cl100k_base encoding to avoid runtime download
+# from openaipublic.blob.core.windows.net (used by vector_store chunking)
+ENV TIKTOKEN_CACHE_DIR="${HOME}/.cache/tiktoken"
+RUN python3 -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 COPY distribution/config.yaml ${APP_ROOT}/config.yaml
 COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
 #TODO: remove this once we have a stable version of llama-stack
