@@ -80,6 +80,16 @@ jobs:
         with:
           fetch-depth: 2  # Need parent commit to detect changes
 
+      - name: Unset cloud provider credentials (fork/Dependabot PRs or non-amd64)
+        if: (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork == true || github.secret_source == 'Dependabot')) || matrix.arch != 'amd64'
+        run: |
+          echo "Unsetting cloud provider credentials (secrets not needed for this configuration)"
+          {
+            echo "VERTEX_AI_PROJECT="
+            echo "GCP_WORKLOAD_IDENTITY_PROVIDER="
+            echo "OPENAI_API_KEY="
+          } >> "$GITHUB_ENV"
+
       - name: Check if distribution directory changed
         id: distribution-changed
         if: github.event_name == 'push'
@@ -132,16 +142,6 @@ jobs:
           load: true
           cache-from: type=gha,scope=build-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=build-${{ matrix.arch }}
-
-      - name: Unset cloud provider credentials for fork and Dependabot PRs (secrets not available)
-        if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork == true || github.secret_source == 'Dependabot')
-        run: |
-          echo "Unsetting cloud provider credentials for fork/Dependabot PR (secrets not available)"
-          {
-            echo "VERTEX_AI_PROJECT="
-            echo "GCP_WORKLOAD_IDENTITY_PROVIDER="
-            echo "OPENAI_API_KEY="
-          } >> "$GITHUB_ENV"
 
       - name: Authenticate to Google Cloud (Vertex)
         if: matrix.arch == 'amd64' && github.event_name != 'workflow_dispatch' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.fork == false && github.secret_source != 'Dependabot'))
