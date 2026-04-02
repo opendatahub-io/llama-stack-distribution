@@ -1,6 +1,6 @@
 # vLLM CPU Container Images
 
-This directory contains a Containerfile based on the official [vllm/vllm-openai-cpu](https://hub.docker.com/r/vllm/vllm-openai-cpu) image (v0.18.0) with pre-downloaded HuggingFace models baked in at build time.
+This directory contains a Containerfile based on the official [vllm/vllm-openai-cpu](https://hub.docker.com/r/vllm/vllm-openai-cpu) image with pre-downloaded HuggingFace models baked in at build time.
 
 ## Build Arguments
 
