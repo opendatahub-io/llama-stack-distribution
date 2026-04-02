@@ -200,6 +200,14 @@ jobs:
         shell: bash
         run: ./tests/smoke.sh
 
+      - name: Provider tests
+        if: github.event_name != 'workflow_dispatch'
+        id: provider-tests
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ contains(fromJSON('["workflow_dispatch", "schedule"]'), github.event_name) && format('source-{0}-{1}', env.LLAMA_STACK_COMMIT_SHA, github.sha) || github.sha }}
+        run: ./tests/test_providers.sh
+
       - name: Integration tests
         if: github.event_name != 'workflow_dispatch' && (matrix.arch == 'amd64' || env.USING_MAAS == 'true')
         id: integration-tests
