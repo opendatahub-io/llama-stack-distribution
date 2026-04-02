@@ -10,6 +10,7 @@ All test scripts live in the `tests/` directory:
 |------|---------|
 | `smoke.sh` | Smoke tests against a running Llama Stack container |
 | `run_integration_tests.sh` | Integration tests using upstream llama-stack's pytest suite |
+| `test_providers.sh` | Provider configuration tests (e.g., conditional `inline::milvus` loading) |
 | `test_utils.sh` | Shared utility functions (e.g., `validate_model_parameter`) |
 
 ### Smoke Tests (`smoke.sh`)
@@ -19,7 +20,7 @@ Smoke tests verify the container image works end-to-end. The script:
 1. **Starts the Llama Stack container** with environment variables for inference models, embedding models, and database configuration, then waits up to 60 seconds for the `/v1/health` endpoint to return `OK`.
 2. **Model listing** - Verifies each configured model appears in the `/v1/models` response.
 3. **OpenAI-compatible inference** - Sends a chat completion request to `/v1/chat/completions` and validates the response.
-4. **PostgreSQL verification** - Checks that expected database tables (`llamastack_kvstore`, `inference_store`) exist, then verifies they are populated with data after inference.
+4. **PostgreSQL verification** - Checks that expected database tables (`llamastack_kvstore`, `inference_store`) exist, then verifies that `inference_store` is populated with data after inference.
 
 Models tested depend on available credentials:
 
@@ -55,40 +56,61 @@ Integration tests run the upstream [llama-stack pytest suite](https://github.com
 
 1. **Extracts the llama-stack version** from the generated `distribution/Containerfile` to ensure tests match the bundled version.
 2. **Clones the llama-stack repository** at the matching version tag into `/tmp/llama-stack-integration-tests`.
-3. **Runs `pytest`** against `tests/integration/inference/` with `llama-stack-client` and `ollama` installed (ollama is a transitive dependency of the upstream test fixtures), pointing at `distribution/config.yaml`.
+3. **Runs `pytest`** against `tests/integration/inference/` with required test dependencies installed, pointing at `distribution/config.yaml`.
+   - `llama-stack-client` is required.
+   - `ollama` is explicitly installed because the upstream test fixtures import it, even though this distribution does not use Ollama as a provider.
 
 Tests are run for each configured inference model (vLLM, and optionally Vertex AI and OpenAI).
 
-Some tests are currently skipped:
+Some upstream tests are currently skipped, grouped by reason:
 
-- `test_text_chat_completion_tool_calling_tools_not_in_request`
-- `test_text_chat_completion_structured_output`
+**Non-streaming tests need `max_tokens` to prevent model from rambling:**
 - `test_text_chat_completion_non_streaming`
 - `test_openai_chat_completion_non_streaming`
+
+**Tool-calling tests not yet supported by our model/provider configuration:**
+- `test_text_chat_completion_tool_calling_tools_not_in_request`
+- `test_text_chat_completion_structured_output`
 - `test_openai_chat_completion_with_tool_choice_none`
 - `test_openai_chat_completion_with_tools`
 - `test_openai_format_preserves_complex_schemas`
 - `test_multiple_tools_with_different_schemas`
 - `test_tool_with_complex_schema`
 - `test_tool_without_schema`
-- `test_openai_completion_guided_choice` (requires vLLM >= v0.12.0)
-- `test_openai_embeddings_with_dimensions` (requires Matryoshka Representation Learning support)
-- `test_openai_embeddings_with_encoding_format_base64` (requires Matryoshka Representation Learning support)
-- `test_openai_completion_logprobs` (upstream schema defines logprobs as bool, should be int)
-- `test_openai_completion_logprobs_streaming` (upstream schema defines logprobs as bool, should be int)
+
+**Requires vLLM >= v0.12.0** ([llamastack/llama-stack#4984](https://github.com/llamastack/llama-stack/issues/4984)):
+- `test_openai_completion_guided_choice`
+
+**`granite-embedding-125m-english` was not trained with Matryoshka Representation Learning**, so vLLM correctly rejects `dimensions` requests with a 400 error:
+- `test_openai_embeddings_with_dimensions`
+- `test_openai_embeddings_with_encoding_format_base64`
+
+**Upstream schema bug** — defines `logprobs` as `bool`, should be `int` ([llamastack/llama-stack#5253](https://github.com/llamastack/llama-stack/issues/5253)):
+- `test_openai_completion_logprobs`
+- `test_openai_completion_logprobs_streaming`
 
 #### Running locally
 
-Prerequisites (same as smoke tests):
+Prerequisites:
 
-- A running Llama Stack container (started by `smoke.sh` or manually)
-- A running vLLM endpoint
-- Environment variables: `VLLM_INFERENCE_MODEL`, `EMBEDDING_MODEL`, `VLLM_URL`, `VLLM_EMBEDDING_URL`, and optionally `VERTEX_AI_PROJECT`/`OPENAI_API_KEY`
+- A running Llama Stack container (started by `smoke.sh` or manually) with a running vLLM inference endpoint and vLLM embedding endpoint behind it
+- Environment variables:
+  - **Required**: `VLLM_INFERENCE_MODEL`, `EMBEDDING_MODEL`, `VLLM_URL`, `VLLM_EMBEDDING_URL`
+  - **Optional**: `VERTEX_AI_PROJECT`, `VERTEX_AI_LOCATION`, and `OPENAI_API_KEY` (enables additional model coverage)
 - `uv` and `git` available on the system
 
 ```bash
 ./tests/run_integration_tests.sh
 ```
+
+### Provider Tests (`test_providers.sh`)
+
+Provider tests verify that conditional provider loading works correctly. Currently tests:
+
+- **`inline::milvus` absent by default** - Container started without `ENABLE_INLINE_MILVUS` should not load the Milvus provider
+- **`inline::milvus` present when enabled** - Container started with `ENABLE_INLINE_MILVUS=true` should load the Milvus provider
+
+Requires `IMAGE_NAME` and either `IMAGE_TAG` or `GITHUB_SHA` environment variables and Docker available on the system.
 
 ## CI/CD Pipelines
 
@@ -105,14 +127,15 @@ The main CI pipeline that builds, tests, and publishes the container image. It r
 
 Pipeline steps:
 
-1. **Build** the container image for AMD64 (loaded for testing) and ARM64 (build-only verification, since GitHub Actions runners do not provide ARM64 with the resources needed to run vLLM)
+1. **Build** the container image for AMD64 (loaded for testing) and ARM64 (build-only verification — ARM64 GitHub Actions runners lack sufficient memory/CPU to run vLLM inference, so smoke and integration tests are only run on AMD64)
 2. **Start vLLM inference** via the `setup-vllm` action using the pre-built `quay.io/opendatahub/vllm-cpu` image (CPU-based `Qwen3-0.6B` model)
 3. **Start vLLM embedding** via the `setup-vllm` action using the same pre-built image (CPU-based `granite-embedding-125m-english` model)
 4. **Start PostgreSQL** via the `setup-postgres` action
 5. **Run smoke tests** (`tests/smoke.sh`)
-6. **Run integration tests** (`tests/run_integration_tests.sh`)
-7. **Publish** multi-arch image to `quay.io/opendatahub/llama-stack` (on push to `main` when `distribution/` changed, or on manual dispatch)
-8. **Notify Slack** on failure or successful publish
+6. **Run provider tests** (`tests/test_providers.sh`)
+7. **Run integration tests** (`tests/run_integration_tests.sh`)
+8. **Publish** multi-arch image to `quay.io/opendatahub/llama-stack` (on push to `main` when `distribution/` changed, or on manual dispatch)
+9. **Notify Slack** on failure or successful publish
 
 Logs from all containers (llama-stack, vLLM, PostgreSQL) and system info are uploaded as artifacts with 7-day retention.
 
@@ -147,6 +170,10 @@ Builds, tests, and publishes pre-built vLLM CPU container images to `quay.io/ope
 
 - **Pull requests** to `main`/`rhoai-v*`/`konflux-poc*` branches and **pushes** to `main`/`rhoai-v*` branches (when `vllm/Containerfile` or actions change)
 - **Manual dispatch** with optional custom inference/embedding model parameters
+
+### Test PR in Showroom (`test-pr-in-showroom.yml`)
+
+Manually triggered workflow that builds and tests a PR's container image in an OpenShift showroom environment. Takes a PR number as input and optionally custom OLM catalog and operator images. Builds the image from the PR code, pushes it to an OpenShift internal registry, and runs the full showroom setup/test/cleanup cycle.
 
 ### Stale Bot (`stale_bot.yml`)
 
