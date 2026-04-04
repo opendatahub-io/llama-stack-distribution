@@ -138,7 +138,7 @@ jobs:
       # Push image by digest for the publish job to assemble into a multi-arch manifest
       - name: Log in to Quay.io
         if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name)
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.QUAY_USERNAME }}
@@ -197,7 +197,7 @@ jobs:
           merge-multiple: true
 
       - name: Log in to Quay.io
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.QUAY_USERNAME }}
