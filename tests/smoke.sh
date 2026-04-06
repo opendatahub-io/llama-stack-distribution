@@ -16,8 +16,6 @@ function start_and_wait_for_llama_stack_container {
     --pull=never
     --net=host
     -p 8321:8321
-    --env "INFERENCE_MODEL=$VLLM_INFERENCE_MODEL"
-    --env "EMBEDDING_MODEL=$EMBEDDING_MODEL"
     --env "VLLM_URL=$VLLM_URL"
     --env "VLLM_EMBEDDING_URL=$VLLM_EMBEDDING_URL"
     --env "TRUSTYAI_LMEVAL_USE_K8S=False"
@@ -33,7 +31,7 @@ function start_and_wait_for_llama_stack_container {
     docker_args+=(--env "VLLM_API_TOKEN=$VLLM_API_TOKEN")
   fi
 
-  # Conditionally add MaaS embedding configuration
+  # Conditionally add embedding configuration
   if [ -n "${VLLM_EMBEDDING_API_TOKEN:-}" ]; then
     docker_args+=(--env "VLLM_EMBEDDING_API_TOKEN=$VLLM_EMBEDDING_API_TOKEN")
   fi
