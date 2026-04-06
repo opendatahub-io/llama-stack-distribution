@@ -20,6 +20,7 @@ providers:
       max_tokens: ${env.VLLM_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_TLS_VERIFY:=true}
+      refresh_models: ${env.VLLM_REFRESH_MODELS:=false}
   - provider_id: ${env.VLLM_EMBEDDING_URL:+vllm-embedding}
     provider_type: remote::vllm
     config:
@@ -27,6 +28,7 @@ providers:
       max_tokens: ${env.VLLM_EMBEDDING_MAX_TOKENS:=4096}
       api_token: ${env.VLLM_EMBEDDING_API_TOKEN:=fake}
       tls_verify: ${env.VLLM_EMBEDDING_TLS_VERIFY:=true}
+      refresh_models: ${env.VLLM_EMBEDDING_REFRESH_MODELS:=false}
   - provider_id: ${env.AWS_BEARER_TOKEN_BEDROCK:+bedrock}
     provider_type: remote::bedrock
     config:
