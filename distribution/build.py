@@ -15,7 +15,7 @@ import re
 import shlex
 from pathlib import Path
 
-CURRENT_LLAMA_STACK_VERSION = "main"
+CURRENT_LLAMA_STACK_VERSION = "v0.7.1+rhaiv.0"
 LLAMA_STACK_VERSION = os.getenv("LLAMA_STACK_VERSION", CURRENT_LLAMA_STACK_VERSION)
 LLAMA_STACK_CLIENT_VERSION = (
     None  # Set to None to auto-derive from LLAMA_STACK_VERSION, or set explicit version
