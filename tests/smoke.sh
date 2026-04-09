@@ -16,6 +16,7 @@ function start_and_wait_for_llama_stack_container {
     --pull=never
     --net=host
     -p 8321:8321
+    --env "EMBEDDING_MODEL=$EMBEDDING_MODEL"
     --env "VLLM_URL=$VLLM_URL"
     --env "VLLM_EMBEDDING_URL=$VLLM_EMBEDDING_URL"
     --env "TRUSTYAI_LMEVAL_USE_K8S=False"

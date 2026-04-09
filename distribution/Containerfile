@@ -66,8 +66,8 @@ RUN uv pip install \
     llama_stack_provider_trustyai_garak==0.3.1
 RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --no-deps sentence-transformers
-RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@main
-RUN uv pip install --no-cache --no-deps 'llama-stack-api@git+https://github.com/opendatahub-io/llama-stack.git@main#subdirectory=src/llama_stack_api'
+RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.7.1+rhaiv.1
+RUN uv pip install --no-cache --no-deps llama-stack-client==0.7.2
 RUN set -o pipefail && opentelemetry-bootstrap -a requirements | uv pip install --requirement -
 RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 # Pre-cache tiktoken cl100k_base encoding to avoid runtime download
