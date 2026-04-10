@@ -7,8 +7,9 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
-      == "main" && ( "distribution/**".pathChanged() || ".tekton/odh-llama-stack-core-push.yaml".pathChanged()
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" &&
+      (target_branch == "main" || target_branch.startsWith("rhoai-")) &&
+      ( "distribution/**".pathChanged() || ".tekton/odh-llama-stack-core-push.yaml".pathChanged()
       )
   creationTimestamp: null
   labels:
@@ -24,7 +25,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/opendatahub/llama-stack:odh-stable
+    value: "quay.io/opendatahub/llama-stack:{{ cel: pac.target_branch == 'main' ? 'odh-nightly' : 'odh-stable' }}"
   - name: dockerfile
     value: distribution/Containerfile
   - name: path-context
