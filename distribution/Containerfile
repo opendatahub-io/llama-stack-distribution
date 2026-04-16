@@ -69,13 +69,13 @@ RUN uv pip install --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.7.1+rhaiv.1
 RUN uv pip install --no-cache --no-deps llama-stack-client==0.7.2
 RUN set -o pipefail && opentelemetry-bootstrap -a requirements | uv pip install --requirement -
-RUN mkdir -p ${{HOME}}/.llama ${{HOME}}/.cache
+RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 # Pre-cache tiktoken cl100k_base encoding to avoid runtime download
 # from openaipublic.blob.core.windows.net (used by vector_store chunking)
-ENV TIKTOKEN_CACHE_DIR="${{HOME}}/.cache/tiktoken"
+ENV TIKTOKEN_CACHE_DIR="${HOME}/.cache/tiktoken"
 RUN python3 -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
-COPY distribution/config.yaml ${{APP_ROOT}}/config.yaml
-COPY --chmod=755 distribution/entrypoint.sh ${{APP_ROOT}}/entrypoint.sh
+COPY distribution/config.yaml ${APP_ROOT}/config.yaml
+COPY --chmod=755 distribution/entrypoint.sh ${APP_ROOT}/entrypoint.sh
 #TODO: remove this once we have a stable version of llama-stack
 # LLS server version is not aligned with the client version, so we disable the version check
 # Currently, LLS client version is 0.3.0, while the server version is 0.3.0rc3+rhai0
