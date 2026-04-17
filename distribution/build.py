@@ -86,10 +86,11 @@ def get_llama_stack_install(llama_stack_version):
             # Branch name - use git for client (matching branch)
             template = source_install_command_git_client
 
-        return template.format(
-            llama_stack_version=llama_stack_version,
-            llama_stack_client_version=llama_stack_client_version,
-        ).rstrip()
+        result = template.replace("{llama_stack_version}", llama_stack_version)
+        result = result.replace(
+            "{llama_stack_client_version}", llama_stack_client_version
+        )
+        return result.rstrip()
 
 
 def is_version_tag(version_str):
