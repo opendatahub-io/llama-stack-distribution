@@ -25,7 +25,6 @@ RUN uv pip install \
     'pypdf>=6.7.2' \
     aiosqlite \
     asyncpg \
-    autoevals \
     boto3 \
     chardet \
     einops \
@@ -55,15 +54,7 @@ RUN uv pip install \
     transformers \
     uvicorn
 RUN uv pip install \
-    llama_stack_provider_lmeval==0.5.0
-RUN uv pip install \
-    llama_stack_provider_ragas[inline]==0.6.1
-RUN uv pip install \
-    llama_stack_provider_ragas[remote]==0.6.1
-RUN uv pip install \
     llama_stack_provider_trustyai_fms==0.4.0
-RUN uv pip install \
-    llama_stack_provider_trustyai_garak==0.3.1
 RUN uv pip install --extra-index-url https://download.pytorch.org/whl/cpu 'torchao>=0.12.0' torch torchvision
 RUN uv pip install --no-deps sentence-transformers
 RUN uv pip install --no-cache --no-deps git+https://github.com/opendatahub-io/llama-stack.git@v0.7.1+rhaiv.1
