@@ -15,7 +15,7 @@ RUN mkdir -p ${HOME}/.llama ${HOME}/.cache
 
 # Pre-cache tiktoken cl100k_base encoding to avoid runtime download
 # from openaipublic.blob.core.windows.net (used by vector_store chunking)
-RUN uv pip install tiktoken
+RUN uv pip install tiktoken==0.12.0
 ENV TIKTOKEN_CACHE_DIR="${HOME}/.cache/tiktoken"
 RUN python3 -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 
