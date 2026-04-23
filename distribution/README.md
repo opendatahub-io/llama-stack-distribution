@@ -11,12 +11,6 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | API | Provider | External? | Enabled by default? | How to enable |
 |-----|----------|-----------|---------------------|---------------|
 | batches | inline::reference | No | ✅ | N/A |
-| datasetio | inline::localfs | No | ✅ | N/A |
-| datasetio | remote::huggingface | No | ✅ | N/A |
-| eval | inline::trustyai_ragas | Yes (version 0.6.1) | ❌ | Set the `TRUSTYAI_EMBEDDING_MODEL` environment variable |
-| eval | remote::trustyai_garak | Yes (version 0.3.1) | ❌ | Set the `ENABLE_KUBEFLOW_GARAK` environment variable |
-| eval | remote::trustyai_lmeval | Yes (version 0.5.0) | ✅ | N/A |
-| eval | remote::trustyai_ragas | Yes (version 0.6.1) | ❌ | Set the `ENABLE_KUBEFLOW_RAGAS` environment variable |
 | files | inline::localfs | No | ✅ | N/A |
 | files | remote::s3 | No | ❌ | Set the `ENABLE_S3` environment variable |
 | inference | inline::sentence-transformers | No | ❌ | Set the `ENABLE_SENTENCE_TRANSFORMERS` environment variable |
@@ -30,9 +24,6 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | responses | inline::builtin | No | ✅ | N/A |
 | safety | remote::passthrough | No | ❌ | Set the `PASSTHROUGH_SAFETY_URL` environment variable |
 | safety | remote::trustyai_fms | Yes (version 0.4.0) | ✅ | N/A |
-| scoring | inline::basic | No | ✅ | N/A |
-| scoring | inline::braintrust | No | ✅ | N/A |
-| scoring | inline::llm-as-judge | No | ✅ | N/A |
 | tool_runtime | inline::file-search | No | ✅ | N/A |
 | tool_runtime | remote::brave-search | No | ✅ | N/A |
 | tool_runtime | remote::model-context-protocol | No | ✅ | N/A |
