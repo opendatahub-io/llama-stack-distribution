@@ -195,7 +195,7 @@ def install_llama_stack_from_source(llama_stack_version):
 
 def get_dependencies():
     """Execute the llama stack build command and capture dependencies."""
-    cmd = ["llama", "stack", "list-deps", "distribution/config.yaml"]
+    cmd = ["llama", "stack", "list-deps", "distribution/build.yaml"]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         # Categorize and sort different types of pip install commands
