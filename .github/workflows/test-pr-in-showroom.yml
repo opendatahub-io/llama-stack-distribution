@@ -89,6 +89,10 @@ jobs:
               echo "Invalid PR_NUMBER"
               exit 1
             fi
+            if ! [[ "$PR_SHA" =~ ^[0-9a-f]{7,40}$ ]]; then
+              echo "Invalid PR_SHA"
+              exit 1
+            fi
             TAG="pr-${PR_NUMBER}-${PR_SHA}"
           else
             SHORT_SHA="${PUSH_SHA:0:12}"
@@ -196,8 +200,8 @@ jobs:
             echo ""
             echo "## Test Results"
             if [ "$JOB_STATUS" = "success" ]; then
-              echo "All tests passed."
+              echo "✅ All tests passed successfully!"
             else
-              echo "Tests failed. Check the logs above for details."
+              echo "❌ Tests failed. Check the logs above for details."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
