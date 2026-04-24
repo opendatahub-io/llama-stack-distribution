@@ -31,7 +31,7 @@ providers:
     config:
       api_key: ${env.AWS_BEARER_TOKEN_BEDROCK:=}
       region_name: ${env.AWS_DEFAULT_REGION:=us-east-2}
-  - provider_id: ${env.ENABLE_SENTENCE_TRANSFORMERS:+sentence-transformers}
+  - provider_id: sentence-transformers
     provider_type: inline::sentence-transformers
     config: {}
   - provider_id: ${env.WATSONX_API_KEY:+watsonx}
@@ -57,7 +57,7 @@ providers:
       api_key: ${env.OPENAI_API_KEY:=}
       base_url: ${env.OPENAI_BASE_URL:=https://api.openai.com/v1}
   vector_io:
-  - provider_id: ${env.ENABLE_INLINE_MILVUS:+milvus}
+  - provider_id: milvus
     provider_type: inline::milvus
     notes: Incompatible with multi-worker deployments
     config:
@@ -65,7 +65,7 @@ providers:
       persistence:
         backend: kv_default
         namespace: vector_io::milvus
-  - provider_id: ${env.ENABLE_FAISS:+faiss}
+  - provider_id: faiss
     provider_type: inline::faiss
     config:
       persistence:
@@ -147,6 +147,10 @@ providers:
           max_write_queue_size: 10000
           num_writers: 4
   tool_runtime:
+  # NOTE: inline::file-search requires a 'files' provider at runtime
+  # (currently inline::localfs). Do not add inline::localfs to
+  # STRIPPED_PROVIDER_TYPES in build.py without also removing
+  # inline::file-search here.
   - provider_id: brave-search
     provider_type: remote::brave-search
     config:
@@ -164,6 +168,7 @@ providers:
     provider_type: remote::model-context-protocol
     config: {}
   files:
+  # Required at runtime by inline::file-search (see tool_runtime above).
   - provider_id: meta-reference-files
     provider_type: inline::localfs
     config:

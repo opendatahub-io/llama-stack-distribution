@@ -15,7 +15,7 @@ import re
 import shlex
 from pathlib import Path
 
-import yaml
+from ruamel.yaml import YAML
 
 # Allowed characters for version strings: alphanumeric, dots, hyphens, plus, underscores
 # Covers semver tags (v0.7.1+rhaiv.1), branch names (main, release-0.5.x), and short SHAs
@@ -217,18 +217,39 @@ def generate_stripped_config():
         print(f"Error: {build_path} not found")
         sys.exit(1)
 
+    ryaml = YAML()
+    ryaml.preserve_quotes = True
+    ryaml.width = 4096
+
     with open(build_path, "r") as f:
-        config = yaml.safe_load(f)
+        config = ryaml.load(f)
+
+    # Validate that every entry in STRIPPED_PROVIDER_TYPES exists in build.yaml
+    all_provider_types = {
+        p.get("provider_type")
+        for provider_list in config.get("providers", {}).values()
+        if isinstance(provider_list, list)
+        for p in provider_list
+        if isinstance(p, dict)
+    }
+    missing = STRIPPED_PROVIDER_TYPES - all_provider_types
+    if missing:
+        print(
+            f"Error: STRIPPED_PROVIDER_TYPES not found in build.yaml: {sorted(missing)}"
+        )
+        sys.exit(1)
 
     providers = config.get("providers", {})
-    for api, provider_list in providers.items():
+    for api in list(providers.keys()):
+        provider_list = providers[api]
         if isinstance(provider_list, list):
-            providers[api] = [
-                p
-                for p in provider_list
-                if not isinstance(p, dict)
-                or p.get("provider_type") not in STRIPPED_PROVIDER_TYPES
-            ]
+            for i in range(len(provider_list) - 1, -1, -1):
+                p = provider_list[i]
+                if (
+                    isinstance(p, dict)
+                    and p.get("provider_type") in STRIPPED_PROVIDER_TYPES
+                ):
+                    del provider_list[i]
 
     header = STRIPPED_CONFIG_HEADER + "".join(
         f"#   - {t}\n" for t in sorted(STRIPPED_PROVIDER_TYPES)
@@ -236,7 +257,7 @@ def generate_stripped_config():
 
     with open(output_path, "w") as f:
         f.write(header)
-        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        ryaml.dump(config, f)
 
     print(f"Successfully generated {output_path}")
 

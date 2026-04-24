@@ -114,6 +114,15 @@ providers:
     config:
       base_url: ${env.PASSTHROUGH_SAFETY_URL:=}
       api_key: ${env.PASSTHROUGH_SAFETY_API_KEY:=}
+        # forward_headers maps keys from X-LlamaStack-Provider-Data to outbound
+        # HTTP headers sent to the downstream service. use this when callers pass
+        # per-request credentials (e.g. a tenant API token) rather than a shared
+        # static key. omit api_key above if you rely solely on forwarded headers.
+        #
+        # forward_headers:
+        #   maas_api_token: Authorization   # X-LlamaStack-Provider-Data key → header
+        #   tenant_id: X-Tenant-Id
+        #   team_id: X-Team-Id
   responses:
   - provider_id: meta-reference
     provider_type: inline::builtin
@@ -128,6 +137,10 @@ providers:
           max_write_queue_size: 10000
           num_writers: 4
   tool_runtime:
+  # NOTE: inline::file-search requires a 'files' provider at runtime
+  # (currently inline::localfs). Do not add inline::localfs to
+  # STRIPPED_PROVIDER_TYPES in build.py without also removing
+  # inline::file-search here.
   - provider_id: brave-search
     provider_type: remote::brave-search
     config:
@@ -145,6 +158,7 @@ providers:
     provider_type: remote::model-context-protocol
     config: {}
   files:
+  # Required at runtime by inline::file-search (see tool_runtime above).
   - provider_id: meta-reference-files
     provider_type: inline::localfs
     config:
@@ -221,8 +235,7 @@ registered_resources:
 vector_stores:
   annotation_prompt_params:
     enable_annotations: true
-    annotation_instruction_template: Cite sources immediately at the end of sentences
-      using <|file-id|> format.
+    annotation_instruction_template: "Cite sources immediately at the end of sentences using <|file-id|> format."
 telemetry:
   enabled: true
 server:
@@ -238,18 +251,13 @@ server:
       verify_tls: ${env.AUTH_VERIFY_TLS:=true}
     access_policy:
     - permit:
-        actions:
-        - read
+        actions: [read]
       when: resource is unowned
-      description: All users can read system resources
+      description: "All users can read system resources"
     - permit:
-        actions:
-        - create
-      description: Authenticated users can create resources
+        actions: [create]
+      description: "Authenticated users can create resources"
     - permit:
-        actions:
-        - read
-        - update
-        - delete
+        actions: [read, update, delete]
       when: user is owner
-      description: Owners can manage their own resources
+      description: "Owners can manage their own resources"
