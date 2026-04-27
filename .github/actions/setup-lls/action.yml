@@ -1,0 +1,90 @@
+name: Setup LLS
+description: Pull and start the LLS distro container with health check
+
+inputs:
+  image_name:
+    description: 'Container image name'
+    required: true
+  image_tag:
+    description: 'Container image tag'
+    required: true
+  embedding_model:
+    description: 'Embedding model id'
+    required: true
+  embedding_provider:
+    description: 'Embedding provider'
+    required: true
+  embedding_provider_model_id:
+    description: 'Embedding provider model id'
+    required: true
+  extra_env:
+    description: 'Extra env vars for docker run (one KEY=VALUE per line)'
+    required: false
+    default: ''
+  volumes:
+    description: 'Volume mounts for docker run (one host:container:mode per line)'
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Start LLS distro
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.image_name }}
+        IMAGE_TAG: ${{ inputs.image_tag }}
+        EMBEDDING_MODEL: ${{ inputs.embedding_model }}
+        EMBEDDING_PROVIDER: ${{ inputs.embedding_provider }}
+        EMBEDDING_PROVIDER_MODEL_ID: ${{ inputs.embedding_provider_model_id }}
+        INPUT_EXTRA_ENV: ${{ inputs.extra_env }}
+        INPUT_VOLUMES: ${{ inputs.volumes }}
+      run: |
+        docker pull "$IMAGE_NAME:$IMAGE_TAG"
+
+        docker_args=(
+          -d --net=host --name llama-stack
+          --env "EMBEDDING_MODEL=$EMBEDDING_MODEL"
+          --env "EMBEDDING_PROVIDER=$EMBEDDING_PROVIDER"
+          --env "EMBEDDING_PROVIDER_MODEL_ID=$EMBEDDING_PROVIDER_MODEL_ID"
+          --env "POSTGRES_HOST=localhost"
+          --env "POSTGRES_PORT=5432"
+          --env "POSTGRES_DB=llamastack"
+          --env "POSTGRES_USER=llamastack"
+          --env "POSTGRES_PASSWORD=llamastack"
+          --env "TRUSTYAI_LMEVAL_USE_K8S=False"
+        )
+
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          if [[ "$line" != *=* ]]; then
+            echo "::error::extra_env line is not KEY=VALUE: $line"
+            exit 1
+          fi
+          docker_args+=(--env "$line")
+        done <<< "$INPUT_EXTRA_ENV"
+
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          if [[ "$line" != *:* ]]; then
+            echo "::error::volumes line is not host:container[:mode]: $line"
+            exit 1
+          fi
+          docker_args+=(--volume "$line")
+        done <<< "$INPUT_VOLUMES"
+
+        docker_args+=("$IMAGE_NAME:$IMAGE_TAG")
+
+        docker run "${docker_args[@]}"
+
+        echo "Waiting for LLS..."
+        for _attempt in {1..60}; do
+          if curl -fsS http://127.0.0.1:8321/v1/health >/dev/null 2>&1; then
+            echo "LLS ready"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "LLS failed to start"
+        docker logs llama-stack || true
+        exit 1
