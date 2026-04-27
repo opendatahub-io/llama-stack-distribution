@@ -10,7 +10,6 @@ All test scripts live in the `tests/` directory:
 |------|---------|
 | `smoke.sh` | Smoke tests against a running Llama Stack container |
 | `run_integration_tests.sh` | Integration tests using upstream llama-stack's pytest suite |
-| `test_providers.sh` | Provider configuration tests (e.g., conditional `inline::milvus` loading) |
 | `test_utils.sh` | Shared utility functions (e.g., `validate_model_parameter`) |
 
 ### Smoke Tests (`smoke.sh`)
@@ -103,15 +102,6 @@ Prerequisites:
 ./tests/run_integration_tests.sh
 ```
 
-### Provider Tests (`test_providers.sh`)
-
-Provider tests verify that conditional provider loading works correctly. Currently tests:
-
-- **`inline::milvus` absent by default** - Container started without `ENABLE_INLINE_MILVUS` should not load the Milvus provider
-- **`inline::milvus` present when enabled** - Container started with `ENABLE_INLINE_MILVUS=true` should load the Milvus provider
-
-Requires `IMAGE_NAME` and either `IMAGE_TAG` or `GITHUB_SHA` environment variables and Docker available on the system.
-
 ## CI/CD Pipelines
 
 Testing is automated via GitHub Actions workflows in `.github/workflows/`.
@@ -127,15 +117,14 @@ The main CI pipeline that builds, tests, and publishes the container image. It r
 
 Pipeline steps:
 
-1. **Build** the container image for AMD64 and ARM64. When MaaS (Model-as-a-Service) vLLM endpoints are configured, both architectures run the full test suite (smoke, provider, and integration tests) against remote inference endpoints. Without MaaS, ARM64 runs smoke and provider tests using local vLLM containers but skips integration tests.
+1. **Build** the container image for AMD64 and ARM64. When MaaS (Model-as-a-Service) vLLM endpoints are configured, both architectures run the full test suite (smoke and integration tests) against remote inference endpoints. Without MaaS, ARM64 runs smoke tests using local vLLM containers but skips integration tests.
 2. **Start vLLM inference** via the `setup-vllm` action using the pre-built `quay.io/opendatahub/vllm-cpu` image (CPU-based `Qwen3-0.6B` model)
 3. **Start vLLM embedding** via the `setup-vllm` action using the same pre-built image (CPU-based `granite-embedding-125m-english` model)
 4. **Start PostgreSQL** via the `setup-postgres` action
 5. **Run smoke tests** (`tests/smoke.sh`)
-6. **Run provider tests** (`tests/test_providers.sh`)
-7. **Run integration tests** (`tests/run_integration_tests.sh`)
-8. **Publish** multi-arch image to `quay.io/opendatahub/llama-stack` (on push to `main` or `rhoai-v*` branches when `distribution/` changed, or on manual dispatch)
-9. **Notify Slack** on failure or successful publish
+6. **Run integration tests** (`tests/run_integration_tests.sh`)
+7. **Publish** multi-arch image to `quay.io/opendatahub/llama-stack` (on push to `main` or `rhoai-v*` branches when `distribution/` changed, or on manual dispatch)
+8. **Notify Slack** on failure or successful publish
 
 Logs from all containers (llama-stack, vLLM, PostgreSQL) and system info are uploaded as artifacts with 7-day retention.
 
