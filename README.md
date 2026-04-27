@@ -69,6 +69,9 @@ podman run \
 > [!IMPORTANT]
 > The distribution image ships with various dependencies already pre-installed. There is *no* guarantee that your custom run YAML will necessarily work with the included dependencies.
 
+> [!NOTE]
+> The container image includes pre-installed dependencies for more providers than are present in the default runtime configuration (`config.yaml`). Providers such as `inline::sentence-transformers`, `inline::milvus`, and `inline::faiss` are available as dependencies but are stripped from the default `config.yaml`. The full provider manifest is maintained in `build.yaml`. To use these dependency-only providers, pass a custom `config.yaml` at runtime (as shown above) that includes the desired provider definitions. See the [distribution README](distribution/README.md) for which providers are dependency-only.
+
 ## ARM64 Support
 
 The distribution image supports both amd64 and arm64 architectures. CI runs the full test suite (build, smoke tests, and integration tests) on both architectures using multi-arch vLLM CPU images. When MaaS (Model-as-a-Service) endpoints are configured, they override the local vLLM containers on both architectures.
