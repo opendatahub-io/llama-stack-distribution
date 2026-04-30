@@ -22,8 +22,6 @@ You can see an overview of the APIs and Providers the image ships with in the ta
 | inference | remote::vllm | No | ❌ | Set the `VLLM_EMBEDDING_URL` environment variable |
 | inference | remote::watsonx | No | ❌ | Set the `WATSONX_API_KEY` environment variable |
 | responses | inline::builtin | No | ✅ | N/A |
-| safety | remote::passthrough | No | ❌ | Set the `PASSTHROUGH_SAFETY_URL` environment variable |
-| safety | remote::trustyai_fms | Yes (version 0.4.0) | ✅ | N/A |
 | tool_runtime | inline::file-search | No | ✅ | N/A |
 | tool_runtime | remote::brave-search | No | ✅ | N/A |
 | tool_runtime | remote::model-context-protocol | No | ✅ | N/A |

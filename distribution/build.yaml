@@ -4,7 +4,6 @@ apis:
 - responses
 - batches
 - inference
-- safety
 - tool_runtime
 - vector_io
 - files
@@ -111,28 +110,6 @@ providers:
       persistence:
         backend: kv_default
         namespace: vector_io::qdrant_remote
-  safety:
-    - provider_id: trustyai_fms
-      provider_type: remote::trustyai_fms
-      module: llama_stack_provider_trustyai_fms==0.4.0
-      config:
-        orchestrator_url: ${env.FMS_ORCHESTRATOR_URL:=}
-        ssl_cert_path: ${env.FMS_SSL_CERT_PATH:=}
-        shields: {}
-    - provider_id: ${env.PASSTHROUGH_SAFETY_URL:+passthrough}
-      provider_type: remote::passthrough
-      config:
-        base_url: ${env.PASSTHROUGH_SAFETY_URL:=}
-        api_key: ${env.PASSTHROUGH_SAFETY_API_KEY:=}
-        # forward_headers maps keys from X-LlamaStack-Provider-Data to outbound
-        # HTTP headers sent to the downstream service. use this when callers pass
-        # per-request credentials (e.g. a tenant API token) rather than a shared
-        # static key. omit api_key above if you rely solely on forwarded headers.
-        #
-        # forward_headers:
-        #   maas_api_token: Authorization   # X-LlamaStack-Provider-Data key → header
-        #   tenant_id: X-Tenant-Id
-        #   team_id: X-Team-Id
   responses:
   - provider_id: meta-reference
     provider_type: inline::builtin
@@ -235,7 +212,6 @@ registered_resources:
     provider_id: ${env.EMBEDDING_PROVIDER:=vllm-embedding}
     provider_model_id: ${env.EMBEDDING_PROVIDER_MODEL_ID:=ibm-granite/granite-embedding-125m-english}
     model_type: embedding
-  shields: []
   vector_dbs: []
   tool_groups:
   - toolgroup_id: builtin::websearch
