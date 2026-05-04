@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/python-312@sha256:95ec8d3ee9f875da011639213fd254256c29bc58861ac0b11f290a291fa04435
+FROM registry.access.redhat.com/ubi9/python-312@sha256:12662c50b0ce52c5a5f43724c9c588c6cbe9be98521f4e3f4112ab01a7becbe5
 WORKDIR /opt/app-root
 
 RUN pip install sqlalchemy # somehow sqlalchemy[asyncio] is not sufficient
